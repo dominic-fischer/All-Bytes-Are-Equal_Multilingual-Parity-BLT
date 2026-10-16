@@ -1,0 +1,176 @@
+async_eval_gpus: null
+checkpoint:
+  continue_training_from_init: false
+  dump:
+    every: 200
+    keep: -1
+  eval:
+    every: 200
+    keep: -1
+  init_ckpt_path: null
+  path: dumps/entropy_10M_20lang_4gpu_sourcesbalanced_steps10000_ckpt200_lr4.5e-3/checkpoints
+  s3_profile: null
+data:
+  add_bos: true
+  add_eos: true
+  add_patches: false
+  arrow_batch_size: 20
+  async_persist_type: exact
+  batch_size: 22
+  buffer_size: 64
+  dataset_files: null
+  enable_byte_ngrams: false
+  entropy_model_name: transformer_100m
+  file_format: json
+  load_async: true
+  max_encoder_seq_length: 8192
+  pad_to_max_length: true
+  patcher_args:
+    device: cuda
+    entropy_model_checkpoint_dir: null
+    log_time: false
+    max_patch_length: null
+    monotonicity: false
+    patch_size: 4.5
+    patching_batch_size: 1
+    patching_device: cuda
+    patching_mode: byte
+    realtime_patching: false
+    threshold: 1.335442066192627
+    threshold_add: null
+  prefetch_size: 64
+  preprocess_dir: null
+  root_dir: data/lang_shards_balanced_4gpu
+  s3_profile: null
+  seed: 42
+  seq_len: 8192
+  sources:
+    amh_Ethi: 636137281.0
+    arb_Arab: 584231723.0
+    cmn_Hans: 341533914.0
+    deu_Latn: 433816288.0
+    eng_Latn: 364940933.0
+    fin_Latn: 405355614.0
+    fra_Latn: 450235572.0
+    heb_Hebr: 508173477.0
+    hrv_Latn: 370300429.0
+    ita_Latn: 431637536.0
+    jpn_Jpan: 466182987.0
+    kat_Geor: 1085466981.0
+    kor_Hang: 439589398.0
+    nya_Latn: 412963769.0
+    ron_Latn: 433699777.0
+    spa_Latn: 442968211.0
+    srp_Cyrl: 659553038.0
+    tam_Taml: 1161615523.0
+    tha_Thai: 1009280574.0
+    vie_Latn: 509207510.0
+  tokenizer_args:
+    init_kwargs: null
+    name: blt
+debug_dynamo: false
+distributed:
+  allow_bf16_reduced_precision_reduction: true
+  compile: false
+  compile_cache_size_limit: 8
+  detect_anomaly: false
+  dp_replicate: 4
+  dp_shard: 1
+  float8_filter: layers\.[0-9]+\.
+  float8_recipe: null
+  fsdp_type: no_shard
+  matmul_allow_tf32: false
+  model_dtype: fp32
+  selective_activation_checkpointing: true
+  spawn_method: forkserver
+  tp_size: 1
+dump_dir: dumps/entropy_10M_20lang_4gpu_sourcesbalanced_steps10000_ckpt200_lr4.5e-3
+entropy_model:
+  attn_bias_type: local_block_causal
+  attn_impl: xformers
+  dim: 384
+  eos_id: 2
+  ffn_dim_multiplier: 1.0
+  head_dim: null
+  init_base_std: null
+  init_std_factor: disabled
+  max_seqlen: 8192
+  multiple_of: 256
+  n_heads: 6
+  n_kv_heads: null
+  n_layers: 6
+  norm_eps: 1.0e-05
+  rope_theta: 10000.0
+  rope_use_fp32_in_outer_product: false
+  seed: 42
+  sliding_window: 512
+  vocab_size: 260
+  weight_tying: false
+env:
+  ENABLE_INTRA_NODE_COMM: '1'
+  MKL_NUM_THREADS: '1'
+  MKL_SERVICE_FORCE_INTEL: GNU
+  NCCL_DEBUG: INFO
+  NCCL_IB_TIMEOUT: '22'
+  OMP_NUM_THREADS: '1'
+  TORCH_NCCL_ASYNC_ERROR_HANDLING: '1'
+  TORCH_NCCL_AVOID_RECORD_STREAMS: '1'
+eval: null
+eval_on_gpus: null
+gc_collect_freq: 1000
+grad_acc_steps: 1
+logging:
+  acc_freq: null
+  freq: 10
+  wandb:
+    allow_val_change: null
+    anonymous: null
+    config_exclude_keys: null
+    config_include_keys: null
+    dir: null
+    entity: null
+    force: null
+    fork_from: null
+    group: null
+    id: null
+    job_type: null
+    mode: null
+    monitor_gym: null
+    name: entropy_10M_20lang_4gpu_sourcesbalanced_steps10000_ckpt200_lr4.5e-3
+    notes: null
+    project: blt-entropy-model
+    resume: null
+    resume_from: null
+    save_code: null
+    sync_tensorboard: null
+    tags: null
+    tensorboard: null
+max_steps: null
+model: null
+name: entropy_10M_20lang_4gpu_sourcesbalanced_steps10000_ckpt200_lr4.5e-3
+optim:
+  annealing_step: 1000
+  beta1: 0.9
+  beta2: 0.95
+  clip: 10.0
+  cosine_theta: 1.0
+  cycle_length: 1.0
+  decay_fraction: 0.1
+  epsilon: 1.0e-08
+  exp_factor: 0.5
+  lr: 0.0045
+  lr_min_ratio: 0.1
+  scheduler: cosine
+  warmup: 500
+  weight_decay: 0.1
+probe_freq: null
+profiling:
+  mem_steps: 2
+  mem_warmup: 100
+  profile_steps: 2
+  profile_warmup: 102
+  run: false
+  trace_folder: profiling
+seed: 777
+steps: 10000
+train_entropy_model: true

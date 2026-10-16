@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLORES+ Language Families & Scripts</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #fff;
+    color: #1a1a1a;
+    padding: 1.5rem;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; text-align: center; }
+  .subtitle { font-size: 0.8rem; color: #888; margin-bottom: 1rem; text-align: center; }
+  #main {
+    display: grid;
+    grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(230px, 280px);
+    gap: 16px;
+    align-items: center;
+  }
+  #wrap { width: 100%; min-width: 0; }
+  .leg-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  @media (max-width: 1000px) {
+    #main { grid-template-columns: 1fr; }
+    #wrap { order: -1; }
+  }
+  #fam-legend {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin: 0 auto 1rem;
+  }
+  .fam-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 18px;
+  }
+  .fam-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    white-space: nowrap;
+    color: #333;
+  }
+  .fam-chip .fam-sw {
+    width: 13px; height: 13px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  
+  .leg-section { 
+    background: #f7f7f9; 
+    border: 1px solid #e1e4e8;
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  }
+  .leg-heading {
+    font-size: 11px;
+    font-weight: 700;
+    color: #444;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #d1d5db;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tier-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+  .leg-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    cursor: default;
+  }
+  .leg-swatch {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .leg-name {
+    flex: 0 0 110px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #222;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  
+  /* Wider and taller metric bars for enhanced proportion assessment */
+  .leg-bar-wrap {
+    flex: 2;
+    height: 10px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .leg-bar {
+    height: 100%;
+    border-radius: 4px;
+  }
+  .leg-num {
+    flex: 0 0 62px;
+    text-align: right;
+    color: #444;
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .script-subtext {
+    flex: 0 0 100%;
+    padding-left: 16px;
+    font-size: 9px;
+    color: #666;
+    margin-top: 1px;
+  }
+  
+  #tt {
+    position: fixed;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    max-width: 300px;
+    z-index: 999;
+    line-height: 1.6;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    transition: opacity 0.12s;
+  }
+
+#theme-toggle {
+  position: fixed; top: 12px; right: 12px; z-index: 1000;
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid #ddd; background: #fff; color: #1a1a1a;
+  font-size: 16px; cursor: pointer; line-height: 1;
+}
+html[data-theme="dark"] body { background: #1a1a1a; color: #e8e8e8; }
+html[data-theme="dark"] #tt { background: #2a2a2a; border-color: #444; }
+html[data-theme="dark"] .subtitle { color: #888; }
+html[data-theme="dark"] #theme-toggle { background: #2a2a2a; border-color: #444; color: #e8e8e8; }
+html[data-theme="dark"] .fam-chip { color: #ccc; }
+html[data-theme="dark"] .leg-section { background: #242424; border-color: #3a3a3a; }
+html[data-theme="dark"] .leg-heading { color: #ddd; border-bottom-color: #444; }
+html[data-theme="dark"] .leg-name { color: #e8e8e8; }
+html[data-theme="dark"] .leg-num { color: #bbb; }
+html[data-theme="dark"] .leg-bar-wrap { background: #3a3a3a; }
+html[data-theme="dark"] .script-subtext { color: #999; }
+
+/* Striped background template for Japanese Logosyllabary elements */
+.stripe-swatch {
+  background: linear-gradient(45deg, #1c353d 25%, #447b8c 25%, #447b8c 50%, #1c353d 50%, #1c353d 75%, #447b8c 75%, #447b8c 100%);
+  background-size: 6px 6px;
+}
+</style>
+</head>
+<body>
+<button id="theme-toggle" title="Toggle dark mode">🌙</button>
+<h1>FLORES+ — Language Families & Scripts</h1>
+<p class="subtitle">225 language variants · inner rings: writing scripts by type & UTF-8 byte cost · outer ring: language families</p>
+<div id="fam-legend"></div>
+<div id="main">
+  <div id="legend-left" class="leg-col"></div>
+  <div id="wrap"></div>
+  <div id="legend-right" class="leg-col"></div>
+</div>
+<div id="tt"></div>
+
+<script>
+const TOTAL = 225;
+
+const GEO_ORDER = [
+  "Atlantic-Congo","Mande","Nilotic","Saharan","Afro-Asiatic",
+  "Indo-European","Basque","Uralic","Kartvelian","Nakh-Daghestanian",
+  "Turkic","Mongolic-Khitan","Sino-Tibetan","Koreanic","Japonic","Dravidian",
+  "Tai-Kadai","Austroasiatic","Austronesian",
+  "Aymaran","Quechuan","Tupian","Artificial Language"
+];
+
+// Geographic colour wheel: evenly spaced hues (red to magenta) following GEO_ORDER;
+// artificial languages stay neutral grey.
+const FAM_COLORS = {};
+{
+  const geo = GEO_ORDER.filter(f => f !== "Artificial Language");
+  geo.forEach((f, i) => {
+    FAM_COLORS[f] = d3.hsl(i * 300 / (geo.length - 1), 0.61, 0.606).formatHex();
+  });
+  FAM_COLORS["Artificial Language"] = "#9aa0a0";
+}
+
+const SCRIPT_FAM_LANGS = {"Nkoo":{"Mande":["Nko"]},"Ethi":{"Afro-Asiatic":["Amharic","Tigrinya"]},"Tfng":{"Afro-Asiatic":["Tamasheq (Tifinagh script)","Standard Moroccan Tamazight"]},"Arab":{"Afro-Asiatic":["Mesopotamian Arabic","Taʽizzi-Adeni Arabic","Tunisian Arabic","Levantine Arabic (North)","Levantine Arabic (South)","Modern Standard Arabic","Najdi Arabic","Moroccan Arabic","Egyptian Arabic"],"Indo-European":["Central Kurdish","Kashmiri (Arabic script)","Southern Pashto","Western Persian","Dari","Sindhi (Arabic script)","Urdu"],"Turkic":["South Azerbaijani","Uyghur","Southern Uzbek"],"Austronesian":["Acehnese (Jawi script)","Banjar (Jawi script)","Minangkabau (Jawi script)"],"Saharan":["Central Kanuri (Arabic script)"]},"Hebr":{"Afro-Asiatic":["Hebrew"],"Indo-European":["Eastern Yiddish"]},"Grek":{"Indo-European":["Greek"]},"Latn":{"Indo-European":["Afrikaans","Albanian (Tosk)","Aragonese","Asturian","Bosnian","Catalan","Czech","Welsh","Danish","German","English","Faroese","French","Friulian","Scottish Gaelic","Irish","Galician","Haitian Creole","Croatian","Icelandic","Italian","Kabuverdianu","Northern Kurdish","Ligurian (Genoese)","Limburgish","Lithuanian","Ladin (Val Badia)","Ladin (Gherdëina)","Lombard","Latgalian","Luxembourgish","Standard Latvian","Mauritian Creole","Dutch","Norwegian Nynorsk","Norwegian Bokmål, moderate variety","Norwegian Bokmål, radical variety","Occitan","Aranese","Papiamento","Polish","Portuguese (Brazilian)","Romanian","Sicilian","Slovak","Slovenian","Spanish (Latin American)","Sardinian","Swedish","Silesian","Tok Pisin","Venetian"],"Atlantic-Congo":["Bemba","Chokwe","Ewe","Fon","Nigerian Fulfulde","Igbo","Kamba","Kabiyè","Kikuyu","Kinyarwanda","Kimbundu","Kituba (DRC)","Lingala","Luba-Kasai","Ganda","Mossi","Northern Sotho","Nyanja","Rundi","Sango","Shona","Southern Sotho","Swati","Swahili","Tswana","Tsonga","Tumbuka","Akuapem Twi","Asante Twi","Umbundu","Emakhuwa (Central)","Wolof","Xhosa","Yoruba","Zulu"],"Austronesian":["Acehnese (Latin script)","Balinese","Banjar (Latin script)","Buginese","Cebuano","Fijian","Filipino","Ilocano","Indonesian","Javanese","Minangkabau (Latin script)","Maori","Pangasinan","Plateau Malagasy","Samoan","Sundanese","Waray","Standard Malay"],"Afro-Asiatic":["Modern Standard Arabic (Romanized)","West Central Oromo","Hausa","Kabyle","Maltese","Somali","Tamasheq (Latin script)"],"Turkic":["North Azerbaijani","Crimean Tatar","Turkmen","Turkish","Northern Uzbek"],"Uralic":["Estonian","Finnish","Hungarian"],"Nilotic":["Southwestern Dinka","Luo","Nuer"],"Mande":["Bambara","Dyula"],"Sino-Tibetan":["Jingpho","Mizo"],"Austroasiatic":["Vietnamese"],"Saharan":["Central Kanuri (Latin script)"],"Basque":["Basque"],"Aymaran":["Central Aymara"],"Quechuan":["Ayacucho Quechua"],"Tupian":["Paraguayan Guaraní"],"Artificial Language":["Esperanto"]},"Cyrl":{"Indo-European":["Belarusian","Bulgarian","Macedonian","Russian","Serbian","Tajik","Ukrainian"],"Turkic":["Bashkir","Chuvash","Kazakh","Kyrgyz","Khakas","Tatar","Tuvan"],"Uralic":["Meadow Mari","Erzya"],"Nakh-Daghestanian":["Dargwa"],"Mongolic-Khitan":["Halh Mongolian (Cyrillic script)"]},"Armn":{"Indo-European":["Armenian"]},"Geor":{"Kartvelian":["Georgian"]},"Hans":{"Sino-Tibetan":["Mandarin Chinese (Standard Beijing)","Wu Chinese"]},"Hant":{"Sino-Tibetan":["Mandarin Chinese (Taiwanese)","Yue Chinese (Hong Kong Cantonese)"]},"Jpan":{"Japonic":["Japanese"]},"Hang":{"Koreanic":["Korean"]},"Tibt":{"Sino-Tibetan":["Lhasa Tibetan","Dzongkha"]},"Deva":{"Indo-European":["Awadhi","Bhojpuri","Dogri","Goan Konkani","Hindi","Chhattisgarhi","Kashmiri (Devanagari script)","Magahi","Maithili","Marathi","Nepali","Sanskrit","Sindhi (Devanagari script)"],"Sino-Tibetan":["Bodo"]},"Guru":{"Indo-European":["Eastern Panjabi"]},"Gujr":{"Indo-European":["Gujarati"]},"Mtei":{"Sino-Tibetan":["Meitei (Manipuri, Meitei script)"]},"Olck":{"Austroasiatic":["Santali"]},"Beng":{"Indo-European":["Assamese","Bengali"],"Sino-Tibetan":["Meitei (Manipuri, Bengali script)"]},"Orya":{"Indo-European":["Odia"]},"Telu":{"Dravidian":["Telugu"]},"Knda":{"Dravidian":["Kannada"]},"Mlym":{"Dravidian":["Malayalam"]},"Taml":{"Dravidian":["Tamil"]},"Sinh":{"Indo-European":["Sinhala"]},"Mymr":{"Sino-Tibetan":["Burmese"],"Tai-Kadai":["Shan"]},"Khmr":{"Austroasiatic":["Khmer (Central)"]},"Laoo":{"Tai-Kadai":["Lao"]},"Thai":{"Tai-Kadai":["Thai"]}};
+
+const TEAL = {
+  "Alphabet":      "#b8dde8",
+  "Abjad":         "#86bdd0",
+  "Abugida":       "#559db8",
+  "Syllabary":     "#447b8c",
+  "Logosyllabary": "url(#stripe-pattern)",
+  "Logographic":   "#1c353d",
+};
+
+const SCRIPT_DATA = [
+  { code:"Latn",            label:"Latin",             type:"Alphabet",    tier:1, fams: SCRIPT_FAM_LANGS["Latn"] },
+  { code:"Cyrl",            label:"Cyrillic",          type:"Alphabet",    tier:2, fams: SCRIPT_FAM_LANGS["Cyrl"] },
+  { code:"Tfng",            label:"Tifinagh",          type:"Alphabet",    tier:2, fams: SCRIPT_FAM_LANGS["Tfng"] },
+  { code:"Alphabet_other",  label:"Alphabet · other",  type:"Alphabet",    tier:2, fams: {"Indo-European":["Greek","Armenian"],"Kartvelian":["Georgian"]}, scripts:"Greek, Armenian, Georgian" },
+  { code:"Nkoo",            label:"N’Ko",              type:"Alphabet",    tier:3, fams: SCRIPT_FAM_LANGS["Nkoo"] },
+  { code:"Arab",            label:"Arabic",            type:"Abjad",       tier:2, fams: SCRIPT_FAM_LANGS["Arab"] },
+  { code:"Hebr",            label:"Hebrew",            type:"Abjad",       tier:2, fams: SCRIPT_FAM_LANGS["Hebr"] },
+  { code:"Ethi",            label:"Ethiopic",          type:"Abugida",     tier:3, fams: SCRIPT_FAM_LANGS["Ethi"] },
+  { code:"Tibt",            label:"Tibetan",           type:"Abugida",     tier:3, fams: SCRIPT_FAM_LANGS["Tibt"] },
+  { code:"Deva",            label:"Devanagari",        type:"Abugida",     tier:3, fams: SCRIPT_FAM_LANGS["Deva"] },
+  { code:"Beng",            label:"Bengali",           type:"Abugida",     tier:3, fams: SCRIPT_FAM_LANGS["Beng"] },
+  { code:"Mymr",            label:"Burmese",           type:"Abugida",     tier:3, fams: SCRIPT_FAM_LANGS["Mymr"] },
+  { code:"Abugida_other",   label:"Abugida · other",   type:"Abugida",     tier:3, fams: {"Indo-European":["Eastern Panjabi","Gujarati","Odia","Sinhala"],"Dravidian":["Telugu","Kannada","Malayalam","Tamil"],"Sino-Tibetan":["Meitei (Manipuri, Meitei script)"],"Austroasiatic":["Santali","Khmer (Central)"],"Tai-Kadai":["Lao","Thai"]}, scripts:"Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Sinhala, Meitei, Ol Chiki, Khmer, Lao, Thai" },
+  { code:"Hans",            label:"Han (Simplified)",  type:"Logographic", tier:3, fams: SCRIPT_FAM_LANGS["Hans"] },
+  { code:"Hant",            label:"Han (Traditional)", type:"Logographic", tier:3, fams: SCRIPT_FAM_LANGS["Hant"] },
+  { code:"Hang",            label:"Hangul",            type:"Syllabary",   tier:3, fams: SCRIPT_FAM_LANGS["Hang"] },
+  { code:"Jpan",            label:"Japanese",          type:"Logosyllabary", tier:3, fams: SCRIPT_FAM_LANGS["Jpan"] },
+];
+
+function renderFamLegend() {
+  const fl = document.getElementById('fam-legend');
+  fl.innerHTML = '';
+  // Measure every chip in a single row first
+  const probe = document.createElement('div');
+  probe.className = 'fam-row';
+  probe.style.flexWrap = 'nowrap';
+  fl.appendChild(probe);
+  const chips = GEO_ORDER.map(fam => {
+    const chip = document.createElement('div');
+    chip.className = 'fam-chip';
+    chip.innerHTML = `<span class="fam-sw" style="background:${FAM_COLORS[fam]}"></span>${fam}`;
+    probe.appendChild(chip);
+    return chip;
+  });
+  const GAP = 18;
+  const w = chips.map(c => c.getBoundingClientRect().width);
+  const rowW = (a, b) => w.slice(a, b).reduce((s, x) => s + x, 0) + GAP * (b - a - 1);
+  // Split (in geographic order) into 3 lines with the smallest longest line
+  let best = null;
+  for (let i = 1; i < w.length - 1; i++) {
+    for (let j = i + 1; j < w.length; j++) {
+      const m = Math.max(rowW(0, i), rowW(i, j), rowW(j, w.length));
+      if (!best || m < best.m) best = { m, i, j };
+    }
+  }
+  fl.removeChild(probe);
+  [[0, best.i], [best.i, best.j], [best.j, chips.length]].forEach(([a, b]) => {
+    const row = document.createElement('div');
+    row.className = 'fam-row';
+    chips.slice(a, b).forEach(c => row.appendChild(c));
+    fl.appendChild(row);
+  });
+}
+
+function render() {
+  const wrap = document.getElementById('wrap');
+  wrap.innerHTML = '';
+
+  const dark = document.documentElement.dataset.theme === 'dark';
+  const langColor = dark ? '#E3E3E3' : '#5C5C5C';   // regular entries
+
+  const W = wrap.clientWidth || 700;
+  const availH = window.innerHeight - document.getElementById('main').getBoundingClientRect().top - 24;
+  const H = Math.min(W, Math.max(availH, 500));
+  const cx = W / 2, cy = H / 2;
+  const outerR  = Math.min(cx, cy) - 12;
+  const holeR   = outerR * 0.13;
+  // 3 script rings of width S plus a family ring of width S/2
+  const famW    = (outerR - holeR) / 7;
+  const famR    = outerR - famW;
+
+  const svg = d3.select(wrap).append('svg').attr('width', W).attr('height', H);
+  
+  const defs = svg.append('defs');
+  const pat = defs.append('pattern')
+    .attr('id', 'stripe-pattern')
+    .attr('patternUnits', 'userSpaceOnUse')
+    .attr('width', 8)
+    .attr('height', 8)
+    .attr('patternTransform', 'rotate(45)');
+  pat.append('rect').attr('width', 8).attr('height', 8).attr('fill', '#1c353d');
+  pat.append('line').attr('x1', 0).attr('y1', 0).attr('x2', 0).attr('y2', 8).attr('stroke', '#447b8c').attr('stroke-width', 4);
+
+  const g = svg.append('g').attr('transform', `translate(${cx},${cy})`);
+  const tt = document.getElementById('tt');
+
+  const scriptZoneW = (famR - holeR) / 3;
+  const SCRIPT_MIN_FS = 9;
+  const RADIAL_MIN_FS = 15;    // names that would be smaller along their wedge are drawn at the size of
+                               // the smallest name that does fit (and may spill past the wedge's edges)
+  const RADIAL_CAP    = 15;
+  const NAME_OUTLINE = true;   // false = no outlines on script names
+  // Outline in the opposite colour to the text: black text gets a white outline,
+  // white text a black one. Applied to every script name so they all look alike.
+  function outline(sel, fill) {
+    if (!NAME_OUTLINE) return sel;
+    return sel.style('stroke', fill === '#111' ? '#fff' : '#111')
+      .style('stroke-width', '2.5px').style('stroke-linejoin', 'round').style('paint-order', 'stroke');
+  }
+
+  // Name written along the wedge (radially), pushed towards the outer end where the
+  // wedge is widest. Largest size such that the text fits the wedge's length and,
+  // at its inner end, its width. Right half reads outwards, left half inwards,
+  // so the text is never upside down.
+  // forceFs: draw at exactly this size, even if the text spills past the wedge's edges
+  function radialLabel(lbl, sa, ea, ri, ro, fill, forceFs = 0) {
+    const ignoreWidth = forceFs > 0;
+    const span = ea - sa, pad = 5;
+    // measure the label at 10px, scale linearly
+    const probe = g.append('text').attr('font-size', 10).text(lbl);
+    const w10 = probe.node().getComputedTextLength();
+    probe.remove();
+    let fs = forceFs;
+    for (let f = RADIAL_CAP; !forceFs && f >= RADIAL_MIN_FS; f -= 0.25) {
+      const L = w10 * f / 10;
+      const rIn = ro - pad - L;                         // radius at the text's inner end
+      if (rIn < ri + pad) continue;                    // too long for the wedge
+      if (span * rIn < f * 1.05) continue;              // too wide (tall) at the inner end
+      fs = f; break;
+    }
+    if (!fs) return false;
+    const L = w10 * fs / 10;
+    const rm = ro - pad - L / 2;
+    const ang = (sa + ea) / 2;
+    let deg = ang * 180 / Math.PI - 90;
+    if (ang > Math.PI) deg += 180;
+    const t = g.append('text')
+      .attr('transform', `translate(${Math.sin(ang) * rm},${-Math.cos(ang) * rm}) rotate(${deg})`)
+      .attr('text-anchor', 'middle').attr('dominant-baseline', 'central')
+      .attr('pointer-events', 'none')
+      .style('font-size', `${fs}px`).style('fill', fill).text(lbl);
+    outline(t, fill);
+    return fs;
+  }
+  const pulledLabels = [];
+  const radialSizes = [];      // sizes of names that fit along their wedge
+  const overflowLabels = [];   // names too thin even along their wedge
+
+  // Curved label inside a wedge: largest size that fits, and if the label has a
+  // hyphen, also try "Volta-" / "Congo" on two lines and keep whichever is bigger.
+  const FS_MIN = 6;
+  function curvedLabel(lbl, sa, ea, ri, ro, fill, idBase, cap, bold = false, minFs = FS_MIN) {
+    const cw = bold ? 0.66 : 0.6, sz = bold ? 1.18 : 1.3;
+    const span = ea - sa, midR = (ri + ro) / 2, radH = ro - ri;
+    const arcLen = span * midR;
+    const fs1 = Math.min(cap, arcLen / lbl.length * sz, radH * 0.52);
+    const fits1 = fs1 >= FS_MIN && arcLen > lbl.length * fs1 * cw && radH > fs1 * 1.2;
+
+    let lines2 = null, fs2 = 0, fits2 = false;
+    // Possible breaks: after a hyphen ("Volta-" / "Congo") or after a middle dot ("Abugida ·" / "other")
+    const splits = [];
+    [...lbl].forEach((c, i) => {
+      if (i === 0 || i === lbl.length - 1) return;
+      if (c === '-') splits.push([lbl.slice(0, i + 1), lbl.slice(i + 1)]);
+      if (c === '·') splits.push([lbl.slice(0, i + 1).trim(), lbl.slice(i + 1).trim()]);
+    });
+    if (splits.length) {
+      lines2 = splits.reduce((best, sp) =>
+        Math.max(sp[0].length, sp[1].length) < Math.max(best[0].length, best[1].length) ? sp : best);
+      const maxLen = Math.max(lines2[0].length, lines2[1].length);
+      fs2 = Math.min(cap, radH * 0.42);
+      fs2 = Math.min(fs2, span * (midR - fs2 * 0.55) / maxLen * sz);
+      fits2 = fs2 >= FS_MIN && span * (midR - fs2 * 0.55) > maxLen * fs2 * cw && radH > fs2 * 2.3;
+    }
+
+    let lines, fs;
+    if (fits2 && (!fits1 || fs2 > fs1 + 0.25)) { lines = lines2; fs = fs2; }
+    else if (fits1) { lines = [lbl]; fs = fs1; }
+    else return false;
+    if (fs < minFs) return false;
+
+    const ang = (sa + ea) / 2;
+    const bh = ang >= Math.PI / 2 && ang <= 3 * Math.PI / 2;   // bottom half → reverse path so text stays upright
+    const a0 = bh ? ea : sa, a1 = bh ? sa : ea;
+    const lh = fs * 1.1, dir = bh ? -1 : 1;
+    const radii = lines.length === 1 ? [midR] : [midR + dir * lh / 2, midR - dir * lh / 2];
+    lines.forEach((line, li) => {
+      const r = radii[li];
+      const pathId = `${idBase}-${li}`;
+      defs.append('path').attr('id', pathId)
+        .attr('d', `M ${Math.sin(a0)*r},${-Math.cos(a0)*r} A ${r},${r} 0 ${span>Math.PI?1:0},${bh?0:1} ${Math.sin(a1)*r},${-Math.cos(a1)*r}`);
+      g.append('text').attr('pointer-events','none').attr('dominant-baseline','central')
+        .append('textPath')
+          .attr('href', `#${pathId}`).attr('startOffset','50%').attr('text-anchor','middle')
+          .attr('dominant-baseline','central')
+          .style('font-size', `${fs}px`).style('font-weight', bold ? 700 : 400).style('fill', fill)
+          .call(sel => outline(sel, fill)).text(line);
+    });
+    return true;
+  }
+  function subRingInner(b) { return holeR + b * scriptZoneW; }
+  function subRingOuter(b) { return holeR + (b + 1) * scriptZoneW; }
+
+  const totalLangs = SCRIPT_DATA.reduce((s,d) => s + Object.values(d.fams).reduce((a,l)=>a+l.length,0), 0);
+
+  const typeOrder = ['Alphabet','Abjad','Abugida','Syllabary','Logosyllabary','Logographic'];
+  const sortedScriptData = typeOrder.flatMap(type =>
+    SCRIPT_DATA
+      .filter(d => d.type === type)
+      .map(d => ({ ...d, count: Object.values(d.fams).reduce((s,l)=>s+l.length,0) }))
+      .sort((a,b) => b.count - a.count)
+  );
+
+  const scriptPad = 0.008;
+  const typePad   = 0.048;
+  const nScripts = sortedScriptData.length;
+  const nTypeBoundaries = 5;
+  const totalGaps = (nScripts - nTypeBoundaries - 1) * scriptPad + nTypeBoundaries * typePad;
+  const dataAngle = 2 * Math.PI - totalGaps;
+
+  let scriptCursor = typePad / 2;
+  const scriptArcData = sortedScriptData.map((d, i) => {
+    const isNewType = i > 0 && sortedScriptData[i-1].type !== d.type;
+    if (i > 0) scriptCursor += isNewType ? typePad : scriptPad;
+    const sa = scriptCursor;
+    const ea = sa + (d.count / totalLangs) * dataAngle;
+    scriptCursor = ea;
+    return { ...d, sa, ea };
+  });
+
+  scriptArcData.forEach(({ code, label, type, tier, fams, count, sa, ea, scripts }) => {
+    const col = TEAL[type];
+    const tc  = (type === 'Alphabet' || type === 'Abjad') ? '#111' : '#fff';   // light wedges: black text; darker ones: white
+    const ang = (sa + ea) / 2;
+    const span = ea - sa;
+    const allLangs = Object.values(fams).flat();
+
+    for (let b = 0; b < tier; b++) {
+      const ringIdx = 3 - tier + b;
+      const byteArc = d3.arc().innerRadius(subRingInner(ringIdx)).outerRadius(subRingOuter(ringIdx)).cornerRadius(1);
+      g.append('path')
+        .attr('d', byteArc({ startAngle: sa, endAngle: ea }))
+        .attr('fill', col)
+        .attr('stroke', 'rgba(255,255,255,0.7)').attr('stroke-width', 0.8)
+        .style('cursor', 'pointer')
+        .on('mousemove', ev => {
+          const pct = (count / TOTAL * 100).toFixed(1);
+          let html = `<div style="font-weight:600;font-size:13px;margin-bottom:2px;">${label}</div>`;
+          html += `<div style="font-size:10px;color:#888;margin-bottom:4px;">${type === 'Logosyllabary' ? 'Logosyllabary (Logographic + Syllabary)' : type} · ${tier}-byte UTF-8</div>`;
+          html += `<div style="font-size:12px;font-weight:500;margin-bottom:5px;">${count} language${count!==1?'s':''}${scripts ? ' / ' + scripts.split(', ').length + ' scripts' : ''} · ${pct}%</div>`;
+          html += `<div style="font-size:10px;color:${langColor};border-top:1px solid ${dark ? '#444' : '#eee'};padding-top:4px;">${allLangs.join(', ')}</div>`;
+          tt.innerHTML = html; tt.style.opacity = '1';
+          tt.style.left = (ev.clientX+16)+'px'; tt.style.top = (ev.clientY-10)+'px';
+        })
+        .on('mouseleave', () => { tt.style.opacity = '0'; });
+    }
+
+    const inside = curvedLabel(label, sa, ea, subRingInner(2), subRingOuter(2), tc, `lp-sc-${code}`, 15, false, SCRIPT_MIN_FS);
+    if (!inside) {
+      // Too small across the wedge → write it along the wedge instead (radially).
+      const along = radialLabel(label, sa, ea, subRingInner(3 - tier), subRingOuter(2), tc);
+      if (along) radialSizes.push(along);
+      else overflowLabels.push({ label, sa, ea, ri: subRingInner(3 - tier), ro: subRingOuter(2), tc });
+    }
+  });
+
+  // Still too thin: write them along the wedge anyway, at the same size as the
+  // smallest name that did fit along its wedge (spilling past the wedge's edges)
+  {
+    const fsSmall = radialSizes.length ? Math.min(...radialSizes) : RADIAL_MIN_FS;
+    overflowLabels.forEach(({ label, sa, ea, ri, ro, tc }) => radialLabel(label, sa, ea, ri, ro, tc, fsSmall));
+  }
+
+  scriptArcData.forEach(({ code, label, type, tier, fams, count, sa, ea }) => {
+    const span = ea - sa;
+    const famEntries = Object.entries(fams).sort((a,b) => GEO_ORDER.indexOf(a[0]) - GEO_ORDER.indexOf(b[0]));
+    const famPad2 = 0.004;
+    let famCursor = sa + famPad2 / 2;
+
+    famEntries.forEach(([fam, langs], fi) => {
+      const frac = langs.length / count;
+      const fsa = famCursor + (fi === 0 ? 0 : famPad2 * 0.5);
+      const fea = famCursor + frac * span - (fi < famEntries.length-1 ? famPad2*0.5 : famPad2/2);
+      famCursor += frac * span;
+      const famCol = FAM_COLORS[fam] || '#aaa';
+      const outerArc = d3.arc().innerRadius(famR + 2).outerRadius(outerR).cornerRadius(2);
+      const ang3 = (fsa + fea) / 2;
+      const span3 = fea - fsa;
+      const midR3 = (famR + 2 + outerR) / 2;
+      const arcLen3 = span3 * midR3;
+      const radH3 = outerR - famR - 2;
+      const rgb3 = famCol.match(/\w\w/g).map(x=>parseInt(x,16));
+      const bright3 = (rgb3[0]*299+rgb3[1]*587+rgb3[2]*114)/1000;
+      const tc3 = bright3 > 145 ? '#111' : '#eee';
+
+      g.append('path')
+        .attr('d', outerArc({ startAngle: fsa, endAngle: fea }))
+        .attr('fill', famCol)
+        .attr('stroke', 'rgba(255,255,255,0.5)').attr('stroke-width', 0.5)
+        .style('cursor', 'pointer')
+        .on('mousemove', ev => {
+          const pct = (langs.length / TOTAL * 100).toFixed(1);
+          let html = `<div style="font-weight:600;font-size:13px;margin-bottom:2px;">${fam}</div>`;
+          html += `<div style="font-size:10px;color:#888;margin-bottom:4px;">in ${label} · ${type} · ${tier}-byte UTF-8</div>`;
+          html += `<div style="font-size:12px;font-weight:500;margin-bottom:5px;">${langs.length} language${langs.length!==1?'s':''} · ${pct}%</div>`;
+          html += `<div style="font-size:10px;color:${langColor};border-top:1px solid ${dark ? '#444' : '#eee'};padding-top:4px;">${langs.join(', ')}</div>`;
+          tt.innerHTML = html; tt.style.opacity = '1';
+          tt.style.left = (ev.clientX+16)+'px'; tt.style.top = (ev.clientY-10)+'px';
+        })
+        .on('mouseleave', () => { tt.style.opacity = '0'; });
+
+      // family names omitted: the outer ring is identified by colour (legend above)
+    });
+  });
+
+  {
+    const fsP = 13, charW = fsP * 0.52, lineH = fsP + 3;
+    const tickGap = 4, tickBase = 14, ro = outerR;
+    const overlap = (ax, ay, aHW, bx, by, bHW) => Math.abs(ay - by) < lineH + 3 && Math.abs(ax - bx) < aHW + bHW + 2;
+    // does the segment (x1,y1)-(x2,y2) pass through the text box centred at (bx,by)?
+    const segHitsBox = (x1, y1, x2, y2, bx, by, hw) => {
+      const n = Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 2);
+      for (let i = 0; i <= n; i++) {
+        const x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n;
+        if (Math.abs(x - bx) < hw && Math.abs(y - by) < lineH / 2 + 1) return true;
+      }
+      return false;
+    };
+    const placed = [];
+    pulledLabels.sort((a, b) => a.ang - b.ang);   // place neighbours in order around the circle
+    pulledLabels.forEach(({ lbl, ang, topHalf }) => {
+      // measure the real rendered width of the label
+      const probe = g.append('text').attr('font-size', fsP).text(lbl);
+      const w = probe.node().getComputedTextLength();
+      probe.remove();
+      const halfW = w / 2 + 3;
+      const r0 = ro + tickGap + tickBase;
+      const side = Math.abs(Math.sin(ang)) > 0.5;
+      const sx = Math.sin(ang) * (ro + tickGap), sy = -Math.cos(ang) * (ro + tickGap);
+      // Placement options, in order of preference. "below": text under the tick tip.
+      // "align": text centred on the tip, or ending/starting at it (lets crowded
+      // labels near the top/bottom avoid crossing their neighbours' lines).
+      const vert = side ? [!topHalf, topHalf] : [!topHalf];
+      const opts = [];
+      ['middle', 'end', 'start'].forEach(align => vert.forEach(below => opts.push({ below, align })));
+
+      const tryPlace = (strict) => {
+        for (let r = r0; r < ro + 95; r += 1) {
+          const lx = Math.sin(ang) * r, ly = -Math.cos(ang) * r;   // tip stays on the radial line
+          for (const { below, align } of opts) {
+            let bx = align === 'middle' ? lx : align === 'end' ? lx - halfW : lx + halfW;
+            bx = Math.max(-cx + halfW + 4, Math.min(cx - halfW - 4, bx));   // keep text inside the SVG
+            const by = below ? ly + 3 + lineH / 2 : ly - 3 - lineH / 2;
+            const free = !placed.some(p =>
+              overlap(bx, by, halfW, p.bx, p.by, p.halfW) ||
+              (strict && (segHitsBox(p.sx, p.sy, p.lx, p.ly, bx, by, halfW) ||   // my text over their line
+                          segHitsBox(sx, sy, lx, ly, p.bx, p.by, p.halfW))));      // my line through their text
+            if (free) return { lbl, ang, sx, sy, lx, ly, bx, by, halfW, below };
+          }
+        }
+        return null;
+      };
+      const best = tryPlace(true) || tryPlace(false);
+      if (best) placed.push(best);
+    });
+    placed.forEach(({ lbl, ang, lx, ly, bx, below }) => {
+      g.append('line')
+        .attr('x1', Math.sin(ang) * (ro + tickGap)).attr('y1', -Math.cos(ang) * (ro + tickGap))
+        .attr('x2', lx).attr('y2', ly)
+        .attr('stroke', '#aaa').attr('stroke-width', 0.8).attr('pointer-events', 'none');
+      g.append('text')
+        .attr('x', bx).attr('y', ly + (below ? 3 : -3))
+        .attr('text-anchor', 'middle').attr('dominant-baseline', below ? 'hanging' : 'auto')
+        .attr('font-size', fsP).attr('fill', dark ? '#fff' : '#000')
+        .attr('pointer-events', 'none').text(lbl);
+    });
+  }
+
+  const TOTAL_SCRIPTS = Object.keys(SCRIPT_FAM_LANGS).length;
+  g.append('circle').attr('r', holeR-1)
+    .attr('fill', dark ? '#1a1a1a' : '#fff').attr('stroke', dark ? '#444' : '#ccc').attr('stroke-width',0.5);
+  g.append('text').attr('text-anchor','middle').attr('dominant-baseline','middle')
+    .attr('font-size',13).attr('font-weight',600).attr('fill', dark ? '#e8e8e8' : '#1a1a1a').text(TOTAL_SCRIPTS);
+  g.append('text').attr('y',14).attr('text-anchor','middle').attr('dominant-baseline','middle')
+    .attr('font-size',8).attr('fill','#888').text('scripts');
+
+  const legL = document.getElementById('legend-left');
+  const legR = document.getElementById('legend-right');
+  legL.innerHTML = ''; legR.innerHTML = '';
+
+  const TYPE_ORDER_LEG = ['Alphabet','Abugida', 'Abjad', 'Syllabary', 'Logosyllabary', 'Logographic'];
+  TYPE_ORDER_LEG.forEach((type, ti) => {
+    const sec = document.createElement('div');
+    sec.className = 'leg-section';
+    const h = document.createElement('div');
+    h.className = 'leg-heading';
+    const typeTotal = SCRIPT_DATA.filter(d=>d.type===type).reduce((s,d)=>s+Object.values(d.fams).reduce((a,l)=>a+l.length,0),0);
+    const typePct = (typeTotal/TOTAL*100).toFixed(1);
+    
+    let headingDotBg = TEAL[type];
+    if (type === 'Logosyllabary') headingDotBg = 'linear-gradient(45deg, #1c353d 25%, #447b8c 25%, #447b8c 50%, #1c353d 50%)';
+    h.innerHTML = `<span class="tier-dot" style="background:${headingDotBg}"></span>${type} <span style="color:#666;font-weight:400;margin-left:auto;">${typeTotal} L · ${typePct}%</span>`;
+    sec.appendChild(h);
+
+    SCRIPT_DATA.filter(d => d.type === type)
+      .map(d => ({ ...d, count: Object.values(d.fams).reduce((s,l)=>s+l.length,0) }))
+      .sort((a,b) => b.count - a.count)
+      .forEach(d => {
+      const cnt = d.count;
+      const pct = (cnt/TOTAL*100).toFixed(1);
+      const isStripe = d.type === 'Logosyllabary';
+      const row = document.createElement('div');
+      row.className = 'leg-row';
+      row.style.flexWrap = 'wrap';
+      row.innerHTML = `
+        <div class="leg-swatch ${isStripe ? 'stripe-swatch' : ''}" style="${!isStripe ? 'background:' + TEAL[d.type] : ''}"></div>
+        <div class="leg-name">${d.label} <span style="font-size:9px;color:#666;font-weight:400;">${d.tier}B</span></div>
+        <div class="leg-bar-wrap"><div class="leg-bar ${isStripe ? 'stripe-swatch' : ''}" style="width:${(cnt/TOTAL*100).toFixed(1)}%;${!isStripe ? 'background:' + TEAL[d.type] : ''}"></div></div>
+        <div class="leg-num">${cnt} · ${pct}%</div>
+        ${d.scripts ? `<div class="script-subtext">${d.scripts}</div>` : ''}
+      `;
+      sec.appendChild(row);
+    });
+    (ti < 3 ? legL : legR).appendChild(sec);
+  });
+}
+
+const themeBtn = document.getElementById('theme-toggle');
+const htmlEl = document.documentElement;
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+htmlEl.dataset.theme = prefersDark ? 'dark' : 'light';
+themeBtn.textContent = prefersDark ? '☀️' : '🌙';
+themeBtn.addEventListener('click', () => {
+  const d = htmlEl.dataset.theme === 'dark';
+  htmlEl.dataset.theme = d ? 'light' : 'dark';
+  themeBtn.textContent = d ? '🌙' : '☀️';
+  render();
+});
+
+renderFamLegend();
+render();
+window.addEventListener('resize', render);
+setTimeout(render, 50);
+</script>
+</body>
+</html>

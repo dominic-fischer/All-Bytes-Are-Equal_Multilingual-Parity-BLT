@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patching premium by language — BLT fairness analysis</title>
+<style>
+  :root { color-scheme: dark light; }
+  :root { --chart-font: 13px; }
+  
+  /* Universal dark mode styles (Triggered via data-theme="dark") */
+  html[data-theme="dark"] body { background: #1a1a1a; color: #e8e8e8; }
+  html[data-theme="dark"] .panel { background: #2a2a2a; border-color: #444; }
+  html[data-theme="dark"] .subtitle, html[data-theme="dark"] .legend-item { color: #aaa; }
+  html[data-theme="dark"] .section-label { color: #777; }
+  html[data-theme="dark"] .lang-tag { background: #333; color: #ccc; }
+  html[data-theme="dark"] .toggle-btn { background: #2a2a2a; border-color: #555; color: #ccc; }
+  html[data-theme="dark"] .toggle-btn:hover { background: #333; }
+  html[data-theme="dark"] .toggle-btn.active { background: #444; color: #e8e8e8; border-color: #888; }
+  html[data-theme="dark"] .axis-tick { color: #555; }
+  html[data-theme="dark"] .close-btn { color: #777; }
+  html[data-theme="dark"] .ctrl-group-label { color: #666; }
+  html[data-theme="dark"] .ctrl-sep { border-color: #333; }
+  html[data-theme="dark"] .fam-row:hover { background: #333; }
+  html[data-theme="dark"] .panel-hint { color: #888; }
+  html[data-theme="dark"] .bytes-legend-swatch { border-color: #555; }
+  html[data-theme="dark"] #theme-toggle { background: #2a2a2a; border-color: #444; color: #e8e8e8; }
+
+  /* Universal light mode styles (Triggered via data-theme="light") */
+  html[data-theme="light"] body { background: #fff; color: #1a1a1a; }
+  html[data-theme="light"] .panel { background: #f5f5f5; border-color: #ddd; }
+  html[data-theme="light"] .subtitle, html[data-theme="light"] .legend-item { color: #555; }
+  html[data-theme="light"] .section-label { color: #999; }
+  html[data-theme="light"] .lang-tag { background: #e8e8e8; color: #333; }
+  html[data-theme="light"] .toggle-btn { background: #fff; border-color: #ccc; color: #555; }
+  html[data-theme="light"] .toggle-btn:hover { background: #f0f0f0; }
+  html[data-theme="light"] .toggle-btn.active { background: #e0e0e0; color: #1a1a1a; border-color: #999; }
+  html[data-theme="light"] .axis-tick { color: #bbb; }
+  html[data-theme="light"] .close-btn { color: #bbb; }
+  html[data-theme="light"] .ctrl-group-label { color: #999; }
+  html[data-theme="light"] .ctrl-sep { border-color: #eee; }
+  html[data-theme="light"] .fam-row:hover { background: #eee; }
+  html[data-theme="light"] .panel-hint { color: #888; }
+  html[data-theme="light"] .bytes-legend-swatch { border-color: #aaa; }
+  html[data-theme="light"] #theme-toggle { background: #fff; border-color: #ddd; color: #1a1a1a; }
+
+  * { box-sizing: border-box; }
+  body { font-family: system-ui,-apple-system,sans-serif; padding: 1.5rem; max-width: 1020px; margin: 0 auto; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.2rem; }
+  .subtitle { font-size: 0.82rem; margin: 0 0 1rem; }
+
+  /* Add this class to your style block */
+  .stripe-swatch {
+    background: linear-gradient(45deg, #1c353d 25%, #447b8c 25%, #447b8c 50%, #1c353d 50%, #1c353d 75%, #447b8c 75%, #447b8c 100%) !important;
+    background-size: 6px 6px !important;
+  }
+
+  /* Floating Theme Toggle button styling */
+  #theme-toggle {
+    position: fixed; top: 12px; right: 12px; z-index: 1000;
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid; font-size: 16px; cursor: pointer; line-height: 1;
+  }
+
+  .controls-outer { margin-bottom: 0.8rem; display: flex; flex-direction: column; gap: 7px; }
+  .ctrl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ctrl-group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; min-width: 80px; flex-shrink: 0; }
+  .ctrl-sep { border: none; border-top: 1px solid; margin: 1px 0; }
+  .toggle-btn { font-size: 12px; padding: 4px 10px; border: 1px solid; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: inherit; white-space: nowrap; }
+  .toggle-btn .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .toggle-btn.anchor::after { content: " ★"; font-size: 10px; opacity: 0.6; }
+
+  .legends { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin-bottom: 2.5rem; }
+  .legend-group { display: flex; flex-direction: column; gap: 3px; }
+  .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 2px; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 3px 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .bytes-legend-swatch { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; border: 1px solid; }
+
+  /* chart */
+  .chart-outer { display: flex; align-items: flex-start; }
+  .y-axis { position: relative; width: 28px; flex-shrink: 0; }
+  .axis-tick { font-size: 10px; text-align: right; position: absolute; right: 0; }
+  .chart-area { flex: 1; min-width: 0; }
+  .bars-row { display: flex; align-items: flex-end; gap: 4px; }
+  .group-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+  .bar-pair { display: flex; align-items: flex-end; gap: 2px; width: 100%; cursor: pointer; border-radius: 3px 3px 0 0; }
+  .bar-pair:hover { opacity: 0.82; }
+  .bar-pair.selected { outline: 2px solid rgba(200,200,200,0.35); outline-offset: 2px; border-radius: 3px; }
+  .bar-half { flex: 1; min-width: 0; display: flex; flex-direction: column-reverse; border-radius: 3px 3px 0 0; overflow: hidden; }
+  .bar-half.hidden { flex: 0; width: 0; overflow: hidden; }
+  .bar-seg { width: 100%; }
+  .bar-half > *:last-child { border-radius: 3px 3px 0 0; }
+  .bar-total { font-size: 10.5px; margin-top: 4px; text-align: center; opacity: 0.45; }
+  .bar-label { font-size: 10.5px; margin-top: 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+  .x-label { font-size: 11px; text-align: center; margin-top: 0.6rem; opacity: 0.55; }
+
+  .panel { margin-top: 1rem; border: 1px solid; border-radius: 6px; padding: 12px 14px; font-size: 13px; min-height: 52px; }
+  .panel-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .panel-title { font-weight: 600; font-size: 13px; }
+  .panel-total { font-size: 11.5px; opacity: 0.55; margin-left: 5px; }
+  .close-btn { background: none; border: none; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; font-family: inherit; }
+  .panel-cols { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+  .panel-col { flex: 1; min-width: 150px; }
+  .col-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; opacity: 0.5; margin-bottom: 6px; }
+  .fam-row { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 4px; cursor: pointer; margin-bottom: 2px; }
+  .fam-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  .fam-name { font-size: 12px; flex: 1; }
+  .fam-count { font-size: 11px; opacity: 0.55; }
+  .fam-arrow { font-size: 11px; opacity: 0.35; }
+  .lang-list-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .lang-list-back { background: none; border: none; cursor: pointer; font-size: 12px; opacity: 0.6; padding: 0; font-family: inherit; color: inherit; }
+  .lang-list-back:hover { opacity: 1; }
+  .lang-list-title { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .lang-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .lang-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 3px 8px; border-radius: 12px; cursor: default; }
+  .lang-prem { font-size: 10.5px; opacity: 0.55; }
+    /* ── Shared font size for legend and axes ── change only this value ── */
+
+  /* legend */
+  .section-label  { font-size: var(--chart-font); }
+  .legend-item    { font-size: var(--chart-font); }
+  .legend-swatch  { width: var(--chart-font); height: var(--chart-font); }
+  .bytes-legend-swatch { width: var(--chart-font); height: var(--chart-font); }
+
+  /* x-axis */
+  .bar-label { font-size: var(--chart-font); }
+  .bar-total { font-size: var(--chart-font); }
+  .x-label   { font-size: var(--chart-font); }
+
+  /* y-axis (column widens with the font so the numbers don't touch the bars) */
+  .axis-tick { font-size: var(--chart-font); }
+  .y-axis    { width: calc(var(--chart-font) * 2.8); }
+</style>
+</head>
+<body>
+<button id="theme-toggle" title="Toggle dark mode">🌙</button>
+<h1>Patching premium relative to English</h1>
+<p class="subtitle">225 FLORES+ languages. Premium = avg patches per sentence ÷ English avg. ★ marks the anchor threshold calibrated to English's operating point.</p>
+
+<div class="controls-outer">
+  <div class="ctrl-row">
+    <span class="ctrl-group-label">Mode</span>
+    <button class="toggle-btn active" id="btn-mode-entropy" onclick="setMode('entropy')">Entropy</button>
+    <button class="toggle-btn" id="btn-mode-monotonicity" onclick="setMode('monotonicity')">Monotonicity</button>
+    <button class="toggle-btn" id="btn-download-csv" onclick="downloadCSV()" style="margin-left: auto; background: #447b8c; color: white; border-color: #315d6b;">
+      📥 Download CSV
+    </button>
+  </div>
+  <hr class="ctrl-sep">
+  <div class="ctrl-row">
+    <span class="ctrl-group-label">Threshold</span>
+    <div id="threshold-btns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+  </div>
+  <hr class="ctrl-sep">
+  <div class="ctrl-row">
+    <span class="ctrl-group-label">Show</span>
+    <button class="toggle-btn active" id="btn-fam" onclick="toggleBar('fam')">
+      <span class="swatch" style="background:linear-gradient(135deg,#d85d5d,#5dd8b8,#795dd8)"></span>Language family
+    </button>
+    <button class="toggle-btn" id="btn-scr" onclick="toggleBar('scr')">
+      <span class="swatch" style="background:linear-gradient(135deg,#b8dde8,#559db8,#315d6b,#1c353d)"></span>Writing system
+    </button>
+    <button class="toggle-btn" id="btn-bytes" onclick="toggleBar('bytes')">
+      <span class="swatch" style="background:linear-gradient(135deg,#888,#ccc,#444)"></span>Bytes/char
+    </button>
+    <button class="toggle-btn" id="btn-cc" onclick="toggleBar('cc')">
+      <span class="swatch" style="background:linear-gradient(135deg,#fff,#888,#101010)"></span>CC training data
+    </button>
+  </div>
+</div>
+
+<div class="legends" id="legends-container"></div>
+
+<div class="chart-outer">
+  <div class="y-axis" id="y-axis"></div>
+  <div class="chart-area">
+    <div class="bars-row" id="bars-row"></div>
+    <p class="x-label">Patching premium relative to English</p>
+  </div>
+</div>
+
+<div class="panel" id="panel">
+  <span class="panel-hint">Click a bar group to explore families and writing systems.</span>
+</div>
+
+<script>
+const LANG_DATA = [{"Glottocode": "amha1245", "Code": "amh", "Code_Orig": "amh_Ethi", "Sentences": 997, "Notes": NaN, "CC_Pages": 5733709.0, "CC_Urls": 5702512.0, "Name": "Amharic", "Script": "Ethi", "Script_Type": "Abugida", "Bytes_Per_Char": "3 bytes", "Family": "Afro-Asiatic", "Full_Classification": "Afro-Asiatic > Semitic > West Semitic > Ethiosemitic > South Ethiopic > Amharic-Argobba", "Minimal_Full_Classification": "Afro-Asiatic > Semitic > Ethiosemitic > South Ethiopic", "raw_entropy_t_1.9180_bpp": 4.1769, "raw_entropy_t_1.9180_pps": 40.8826, "raw_entropy_t_1.9180_pps_premium": 1.1362, "raw_entropy_t_2.0308_bpp": 4.3482, "raw_entropy_t_2.0308_pps": 39.2718, "raw_entropy_t_2.0308_pps_premium": 1.1995, "raw_entropy_t_2.1946_bpp": 4.6078, "raw_entropy_t_2.1946_pps": 37.0592, "raw_entropy_t_2.1946_pps_premium": 1.2814, "raw_entropy_t_2.4712_bpp": 5.1232, "raw_entropy_t_2.4712_pps": 33.331, "raw_entropy_t_2.4712_pps_premium": 1.4489, "raw_monotonicity_t_0.5609_bpp": 6.3977, "raw_monotonicity_t_0.5609_pps": 26.6911, "raw_monotonicity_t_0.5609_pps_premium": 0.7424, "raw_monotonicity_t_0.7050_bpp": 6.9106, "raw_monotonicity_t_0.7050_pps": 24.7101, "raw_monotonicity_t_0.7050_pps_premium": 0.7546, "raw_monotonicity_t_0.9470_bpp": 7.79, "raw_monotonicity_t_0.9470_pps": 21.9208, "raw_monotonicity_t_0.9470_pps_premium": 0.7709, "raw_monotonicity_t_1.3330_bpp": 8.9234, "raw_monotonicity_t_1.3330_pps": 19.1364, "raw_monotonicity_t_1.3330_pps_premium": 0.8309}, {"Glottocode": "stan1318", "Code": "arb", "Code_Orig": "arb_Arab", "Sentences": 997, "Notes": NaN, "CC_Pages": 1258479625.0, "CC_Urls": 1251265891.0, "Name": "Modern Standard Arabic", "Script": "Arab", "Script_Type": "Abjad", "Bytes_Per_Char": "2 bytes", "Family": "Afro-Asiatic", "Full_Classification": "Afro-Asiatic > Semitic > West Semitic > Central Semitic > Arabian > Arabic", "Minimal_Full_Classification": "Afro-Asiatic > Semitic > Central Semitic > Arabian", "raw_entropy_t_1.9180_bpp": 4.5727, "raw_entropy_t_1.9180_pps": 48.5085, "raw_entropy_t_1.9180_pps_premium": 1.3481, "raw_entropy_t_2.0308_bpp": 4.9086, "raw_entropy_t_2.0308_pps": 45.1886, "raw_entropy_t_2.0308_pps_premium": 1.3803, "raw_entropy_t_2.1946_bpp": 5.5653, "raw_entropy_t_2.1946_pps": 39.8566, "raw_entropy_t_2.1946_pps_premium": 1.3781, "raw_entropy_t_2.4712_bpp": 7.7352, "raw_entropy_t_2.4712_pps": 28.676, "raw_entropy_t_2.4712_pps_premium": 1.2466, "raw_monotonicity_t_0.5609_bpp": 6.72, "raw_monotonicity_t_0.5609_pps": 33.008, "raw_monotonicity_t_0.5609_pps_premium": 0.9181, "raw_monotonicity_t_0.7050_bpp": 7.4064, "raw_monotonicity_t_0.7050_pps": 29.9488, "raw_monotonicity_t_0.7050_pps_premium": 0.9145, "raw_monotonicity_t_0.9470_bpp": 8.5763, "raw_monotonicity_t_0.9470_pps": 25.8636, "raw_monotonicity_t_0.9470_pps_premium": 0.9096, "raw_monotonicity_t_1.3330_bpp": 10.6224, "raw_monotonicity_t_1.3330_pps": 20.8816, "raw_monotonicity_t_1.3330_pps_premium": 0.9067}, {"Glottocode": "beij1234", "Code": "cmn", "Code_Orig": "cmn_Hans", "Sentences": 997, "Notes": NaN, "CC_Pages": 10899511187.0, "CC_Urls": 10856245131.0, "Name": "Mandarin Chinese (Standard Beijing)", "Script": "Hans", "Script_Type": "Logographic", "Bytes_Per_Char": "3 bytes", "Family": "Sino-Tibetan", "Full_Classification": "Sino-Tibetan > Sinitic > Classical-Middle-Modern Sinitic > Middle-Modern Sinitic > Northern Chinese > Mandarinic > Mandarin Chinese > Beijingic", "Minimal_Full_Classification": "Sino-Tibetan > Sinitic > Northern Chinese", "raw_entropy_t_1.9180_bpp": 2.1488, "raw_entropy_t_1.9180_pps": 39.3771, "raw_entropy_t_1.9180_pps_premium": 1.0943, "raw_entropy_t_2.0308_bpp": 2.1693, "raw_entropy_t_2.0308_pps": 39.005, "raw_entropy_t_2.0308_pps_premium": 1.1914, "raw_entropy_t_2.1946_bpp": 2.1984, "raw_entropy_t_2.1946_pps": 38.4875, "raw_entropy_t_2.1946_pps_premium": 1.3308, "raw_entropy_t_2.4712_bpp": 2.2576, "raw_entropy_t_2.4712_pps": 37.4784, "raw_entropy_t_2.4712_pps_premium": 1.6292, "raw_monotonicity_t_0.5609_bpp": 4.6798, "raw_monotonicity_t_0.5609_pps": 18.0802, "raw_monotonicity_t_0.5609_pps_premium": 0.5029, "raw_monotonicity_t_0.7050_bpp": 4.9442, "raw_monotonicity_t_0.7050_pps": 17.1133, "raw_monotonicity_t_0.7050_pps_premium": 0.5226, "raw_monotonicity_t_0.9470_bpp": 5.4417, "raw_monotonicity_t_0.9470_pps": 15.5486, "raw_monotonicity_t_0.9470_pps_premium": 0.5468, "raw_monotonicity_t_1.3330_bpp": 6.3985, "raw_monotonicity_t_1.3330_pps": 13.2237, "raw_monotonicity_t_1.3330_pps_premium": 0.5742}, {"Glottocode": "stan1295", "Code": "deu", "Code_Orig": "deu_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 11072171606.0, "CC_Urls": 10978241043.0, "Name": "German", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Indo-European", "Full_Classification": "Indo-European > Classical Indo-European > Germanic > Northwest Germanic > West Germanic > High German > Upper German > Middle-Modern High German > Modern High German > Upper Franconian > Global German", "Minimal_Full_Classification": "Indo-European > Germanic > West Germanic > High German > Upper German", "raw_entropy_t_1.9180_bpp": 7.462, "raw_entropy_t_1.9180_pps": 39.3992, "raw_entropy_t_1.9180_pps_premium": 1.0949, "raw_entropy_t_2.0308_bpp": 8.2526, "raw_entropy_t_2.0308_pps": 35.6249, "raw_entropy_t_2.0308_pps_premium": 1.0881, "raw_entropy_t_2.1946_bpp": 9.4801, "raw_entropy_t_2.1946_pps": 31.012, "raw_entropy_t_2.1946_pps_premium": 1.0723, "raw_entropy_t_2.4712_bpp": 11.7097, "raw_entropy_t_2.4712_pps": 25.1073, "raw_entropy_t_2.4712_pps_premium": 1.0914, "raw_monotonicity_t_0.5609_bpp": 6.8257, "raw_monotonicity_t_0.5609_pps": 43.0722, "raw_monotonicity_t_0.5609_pps_premium": 1.198, "raw_monotonicity_t_0.7050_bpp": 7.4837, "raw_monotonicity_t_0.7050_pps": 39.2849, "raw_monotonicity_t_0.7050_pps_premium": 1.1996, "raw_monotonicity_t_0.9470_bpp": 8.7227, "raw_monotonicity_t_0.9470_pps": 33.7051, "raw_monotonicity_t_0.9470_pps_premium": 1.1853, "raw_monotonicity_t_1.3330_bpp": 11.14, "raw_monotonicity_t_1.3330_pps": 26.3912, "raw_monotonicity_t_1.3330_pps_premium": 1.1459}, {"Glottocode": "stan1293", "Code": "eng", "Code_Orig": "eng_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 88502069080.0, "CC_Urls": 87766779120.0, "Name": "English", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Indo-European", "Full_Classification": "Indo-European > Classical Indo-European > Germanic > Northwest Germanic > West Germanic > North Sea Germanic > Anglo-Frisian > Anglic > Later Anglic > Middle-Modern English > Macro-English", "Minimal_Full_Classification": "Indo-European > Germanic > West Germanic > North Sea Germanic", "raw_entropy_t_1.9180_bpp": 6.9795, "raw_entropy_t_1.9180_pps": 35.9829, "raw_entropy_t_1.9180_pps_premium": 1.0, "raw_entropy_t_2.0308_bpp": 7.671, "raw_entropy_t_2.0308_pps": 32.7392, "raw_entropy_t_2.0308_pps_premium": 1.0, "raw_entropy_t_2.1946_bpp": 8.6838, "raw_entropy_t_2.1946_pps": 28.9208, "raw_entropy_t_2.1946_pps_premium": 1.0, "raw_entropy_t_2.4712_bpp": 10.9173, "raw_entropy_t_2.4712_pps": 23.004, "raw_entropy_t_2.4712_pps_premium": 1.0, "raw_monotonicity_t_0.5609_bpp": 6.9853, "raw_monotonicity_t_0.5609_pps": 35.9529, "raw_monotonicity_t_0.5609_pps_premium": 1.0, "raw_monotonicity_t_0.7050_bpp": 7.6691, "raw_monotonicity_t_0.7050_pps": 32.7472, "raw_monotonicity_t_0.7050_pps_premium": 1.0, "raw_monotonicity_t_0.9470_bpp": 8.832, "raw_monotonicity_t_0.9470_pps": 28.4353, "raw_monotonicity_t_0.9470_pps_premium": 1.0, "raw_monotonicity_t_1.3330_bpp": 10.9049, "raw_monotonicity_t_1.3330_pps": 23.0301, "raw_monotonicity_t_1.3330_pps_premium": 1.0}, {"Glottocode": "finn1318", "Code": "fin", "Code_Orig": "fin_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 754585351.0, "CC_Urls": 748584150.0, "Name": "Finnish", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Uralic", "Full_Classification": "Uralic > Finnic > Coastal Finnic > Neva > North Finnic > Nuclear Finnish", "Minimal_Full_Classification": "Uralic > Finnic > North Finnic", "raw_entropy_t_1.9180_bpp": 7.219, "raw_entropy_t_1.9180_pps": 37.2177, "raw_entropy_t_1.9180_pps_premium": 1.0343, "raw_entropy_t_2.0308_bpp": 8.4968, "raw_entropy_t_2.0308_pps": 31.6209, "raw_entropy_t_2.0308_pps_premium": 0.9658, "raw_entropy_t_2.1946_bpp": 10.4833, "raw_entropy_t_2.1946_pps": 25.6289, "raw_entropy_t_2.1946_pps_premium": 0.8862, "raw_entropy_t_2.4712_bpp": 14.2666, "raw_entropy_t_2.4712_pps": 18.8325, "raw_entropy_t_2.4712_pps_premium": 0.8187, "raw_monotonicity_t_0.5609_bpp": 7.2586, "raw_monotonicity_t_0.5609_pps": 37.015, "raw_monotonicity_t_0.5609_pps_premium": 1.0295, "raw_monotonicity_t_0.7050_bpp": 8.2811, "raw_monotonicity_t_0.7050_pps": 32.4443, "raw_monotonicity_t_0.7050_pps_premium": 0.9908, "raw_monotonicity_t_0.9470_bpp": 10.1643, "raw_monotonicity_t_0.9470_pps": 26.4333, "raw_monotonicity_t_0.9470_pps_premium": 0.9296, "raw_monotonicity_t_1.3330_bpp": 14.0408, "raw_monotonicity_t_1.3330_pps": 19.1354, "raw_monotonicity_t_1.3330_pps_premium": 0.8309}, {"Glottocode": "stan1290", "Code": "fra", "Code_Orig": "fra_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 8938152817.0, "CC_Urls": 8869369439.0, "Name": "French", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Indo-European", "Full_Classification": "Indo-European > Classical Indo-European > Italic > Latino-Faliscan > Latinic > Imperial Latin > Romance > Italo-Western Romance > Western Romance > Shifted Western Romance > Northwestern Shifted Romance > Gallo-Rhaetian > Oil > Central Oil > Macro-French > Global French", "Minimal_Full_Classification": "Indo-European > Italic > Italo-Western Romance > Western Romance > Shifted Western Romance > Northwestern Shifted Romance > Gallo-Rhaetian > Global French", "raw_entropy_t_1.9180_bpp": 7.8916, "raw_entropy_t_1.9180_pps": 37.8215, "raw_entropy_t_1.9180_pps_premium": 1.0511, "raw_entropy_t_2.0308_bpp": 8.7082, "raw_entropy_t_2.0308_pps": 34.2748, "raw_entropy_t_2.0308_pps_premium": 1.0469, "raw_entropy_t_2.1946_bpp": 9.9494, "raw_entropy_t_2.1946_pps": 29.999, "raw_entropy_t_2.1946_pps_premium": 1.0373, "raw_entropy_t_2.4712_bpp": 12.5117, "raw_entropy_t_2.4712_pps": 23.8556, "raw_entropy_t_2.4712_pps_premium": 1.037, "raw_monotonicity_t_0.5609_bpp": 7.3991, "raw_monotonicity_t_0.5609_pps": 40.339, "raw_monotonicity_t_0.5609_pps_premium": 1.122, "raw_monotonicity_t_0.7050_bpp": 8.3043, "raw_monotonicity_t_0.7050_pps": 35.9418, "raw_monotonicity_t_0.7050_pps_premium": 1.0976, "raw_monotonicity_t_0.9470_bpp": 9.8683, "raw_monotonicity_t_0.9470_pps": 30.2457, "raw_monotonicity_t_0.9470_pps_premium": 1.0637, "raw_monotonicity_t_1.3330_bpp": 12.3185, "raw_monotonicity_t_1.3330_pps": 24.2297, "raw_monotonicity_t_1.3330_pps_premium": 1.0521}, {"Glottocode": "hebr1245", "Code": "heb", "Code_Orig": "heb_Hebr", "Sentences": 997, "Notes": NaN, "CC_Pages": 461968429.0, "CC_Urls": 458572341.0, "Name": "Hebrew", "Script": "Hebr", "Script_Type": "Abjad", "Bytes_Per_Char": "2 bytes", "Family": "Afro-Asiatic", "Full_Classification": "Afro-Asiatic > Semitic > West Semitic > Central Semitic > Northwest Semitic > Canaanite > Hebrewic", "Minimal_Full_Classification": "Afro-Asiatic > Semitic > Central Semitic > Northwest Semitic", "raw_entropy_t_1.9180_bpp": 4.1835, "raw_entropy_t_1.9180_pps": 46.7523, "raw_entropy_t_1.9180_pps_premium": 1.2993, "raw_entropy_t_2.0308_bpp": 4.4715, "raw_entropy_t_2.0308_pps": 43.7412, "raw_entropy_t_2.0308_pps_premium": 1.336, "raw_entropy_t_2.1946_bpp": 5.0275, "raw_entropy_t_2.1946_pps": 38.9037, "raw_entropy_t_2.1946_pps_premium": 1.3452, "raw_entropy_t_2.4712_bpp": 6.8689, "raw_entropy_t_2.4712_pps": 28.4744, "raw_entropy_t_2.4712_pps_premium": 1.2378, "raw_monotonicity_t_0.5609_bpp": 7.5076, "raw_monotonicity_t_0.5609_pps": 26.0522, "raw_monotonicity_t_0.5609_pps_premium": 0.7246, "raw_monotonicity_t_0.7050_bpp": 8.3548, "raw_monotonicity_t_0.7050_pps": 23.4102, "raw_monotonicity_t_0.7050_pps_premium": 0.7149, "raw_monotonicity_t_0.9470_bpp": 9.9486, "raw_monotonicity_t_0.9470_pps": 19.66, "raw_monotonicity_t_0.9470_pps_premium": 0.6914, "raw_monotonicity_t_1.3330_bpp": 12.6649, "raw_monotonicity_t_1.3330_pps": 15.4433, "raw_monotonicity_t_1.3330_pps_premium": 0.6706}, {"Glottocode": "croa1245", "Code": "hrv", "Code_Orig": "hrv_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 398007249.0, "CC_Urls": 395925092.0, "Name": "Croatian", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Indo-European", "Full_Classification": "Indo-European > Classical Indo-European > Balto-Slavic > Slavic > South Slavic > Western South Slavic > Serbian-Croatian-Bosnian > Shtokavski > New Shtokavian > Eastern Herzegovinian Shtokavian", "Minimal_Full_Classification": "Indo-European > Balto-Slavic > Slavic > South Slavic > Western South Slavic > Serbian-Croatian-Bosnian", "raw_entropy_t_1.9180_bpp": 6.4269, "raw_entropy_t_1.9180_pps": 38.663, "raw_entropy_t_1.9180_pps_premium": 1.0745, "raw_entropy_t_2.0308_bpp": 7.0979, "raw_entropy_t_2.0308_pps": 35.008, "raw_entropy_t_2.0308_pps_premium": 1.0693, "raw_entropy_t_2.1946_bpp": 8.1356, "raw_entropy_t_2.1946_pps": 30.5426, "raw_entropy_t_2.1946_pps_premium": 1.0561, "raw_entropy_t_2.4712_bpp": 10.3168, "raw_entropy_t_2.4712_pps": 24.0853, "raw_entropy_t_2.4712_pps_premium": 1.047, "raw_monotonicity_t_0.5609_bpp": 6.7089, "raw_monotonicity_t_0.5609_pps": 37.0381, "raw_monotonicity_t_0.5609_pps_premium": 1.0302, "raw_monotonicity_t_0.7050_bpp": 7.4658, "raw_monotonicity_t_0.7050_pps": 33.2828, "raw_monotonicity_t_0.7050_pps_premium": 1.0164, "raw_monotonicity_t_0.9470_bpp": 8.8935, "raw_monotonicity_t_0.9470_pps": 27.9398, "raw_monotonicity_t_0.9470_pps_premium": 0.9826, "raw_monotonicity_t_1.3330_bpp": 11.6533, "raw_monotonicity_t_1.3330_pps": 21.323, "raw_monotonicity_t_1.3330_pps_premium": 0.9259}, {"Glottocode": "ital1282", "Code": "ita", "Code_Orig": "ita_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 4769480161.0, "CC_Urls": 4737665600.0, "Name": "Italian", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Indo-European", "Full_Classification": "Indo-European > Classical Indo-European > Italic > Latino-Faliscan > Latinic > Imperial Latin > Romance > Italo-Western Romance > Italo-Dalmatian > Italian Romance > Central Italian Romance", "Minimal_Full_Classification": "Indo-European > Italic > Italo-Western Romance > Italo-Dalmatian > Italian Romance > Central Italian Romance", "raw_entropy_t_1.9180_bpp": 7.5473, "raw_entropy_t_1.9180_pps": 39.0953, "raw_entropy_t_1.9180_pps_premium": 1.0865, "raw_entropy_t_2.0308_bpp": 8.2828, "raw_entropy_t_2.0308_pps": 35.6239, "raw_entropy_t_2.0308_pps_premium": 1.0881, "raw_entropy_t_2.1946_bpp": 9.5749, "raw_entropy_t_2.1946_pps": 30.8164, "raw_entropy_t_2.1946_pps_premium": 1.0655, "raw_entropy_t_2.4712_bpp": 12.0595, "raw_entropy_t_2.4712_pps": 24.4674, "raw_entropy_t_2.4712_pps_premium": 1.0636, "raw_monotonicity_t_0.5609_bpp": 7.2693, "raw_monotonicity_t_0.5609_pps": 40.5908, "raw_monotonicity_t_0.5609_pps_premium": 1.129, "raw_monotonicity_t_0.7050_bpp": 8.2561, "raw_monotonicity_t_0.7050_pps": 35.7392, "raw_monotonicity_t_0.7050_pps_premium": 1.0914, "raw_monotonicity_t_0.9470_bpp": 10.0664, "raw_monotonicity_t_0.9470_pps": 29.3119, "raw_monotonicity_t_0.9470_pps_premium": 1.0308, "raw_monotonicity_t_1.3330_bpp": 12.8727, "raw_monotonicity_t_1.3330_pps": 22.9218, "raw_monotonicity_t_1.3330_pps_premium": 0.9953}, {"Glottocode": "nucl1643", "Code": "jpn", "Code_Orig": "jpn_Jpan", "Sentences": 997, "Notes": NaN, "CC_Pages": 9870174960.0, "CC_Urls": 9822995554.0, "Name": "Japanese", "Script": "Jpan", "Script_Type": "Logosyllabary", "Bytes_Per_Char": "3 bytes", "Family": "Japonic", "Full_Classification": "Japonic > Japanesic > Japan-Taiwan Japanese", "Minimal_Full_Classification": "Japonic", "raw_entropy_t_1.9180_bpp": 2.9357, "raw_entropy_t_1.9180_pps": 37.349, "raw_entropy_t_1.9180_pps_premium": 1.038, "raw_entropy_t_2.0308_bpp": 3.0194, "raw_entropy_t_2.0308_pps": 36.3129, "raw_entropy_t_2.0308_pps_premium": 1.1092, "raw_entropy_t_2.1946_bpp": 3.1394, "raw_entropy_t_2.1946_pps": 34.9258, "raw_entropy_t_2.1946_pps_premium": 1.2076, "raw_entropy_t_2.4712_bpp": 3.3923, "raw_entropy_t_2.4712_pps": 32.322, "raw_entropy_t_2.4712_pps_premium": 1.4051, "raw_monotonicity_t_0.5609_bpp": 4.8049, "raw_monotonicity_t_0.5609_pps": 22.8195, "raw_monotonicity_t_0.5609_pps_premium": 0.6347, "raw_monotonicity_t_0.7050_bpp": 5.0659, "raw_monotonicity_t_0.7050_pps": 21.6439, "raw_monotonicity_t_0.7050_pps_premium": 0.6609, "raw_monotonicity_t_0.9470_bpp": 5.5207, "raw_monotonicity_t_0.9470_pps": 19.8606, "raw_monotonicity_t_0.9470_pps_premium": 0.6984, "raw_monotonicity_t_1.3330_bpp": 6.4055, "raw_monotonicity_t_1.3330_pps": 17.1174, "raw_monotonicity_t_1.3330_pps_premium": 0.7433}, {"Glottocode": "nucl1302", "Code": "kat", "Code_Orig": "kat_Geor", "Sentences": 997, "Notes": NaN, "CC_Pages": 79782785.0, "CC_Urls": 79423527.0, "Name": "Georgian", "Script": "Geor", "Script_Type": "Alphabet", "Bytes_Per_Char": "2 bytes", "Family": "Kartvelian", "Full_Classification": "Kartvelian > Georgian-Zan > Georgic", "Minimal_Full_Classification": "Kartvelian", "raw_entropy_t_1.9180_bpp": 8.1904, "raw_entropy_t_1.9180_pps": 33.7854, "raw_entropy_t_1.9180_pps_premium": 0.9389, "raw_entropy_t_2.0308_bpp": 8.9623, "raw_entropy_t_2.0308_pps": 30.8756, "raw_entropy_t_2.0308_pps_premium": 0.9431, "raw_entropy_t_2.1946_bpp": 10.1552, "raw_entropy_t_2.1946_pps": 27.2487, "raw_entropy_t_2.1946_pps_premium": 0.9422, "raw_entropy_t_2.4712_bpp": 12.6879, "raw_entropy_t_2.4712_pps": 21.8094, "raw_entropy_t_2.4712_pps_premium": 0.9481, "raw_monotonicity_t_0.5609_bpp": 6.792, "raw_monotonicity_t_0.5609_pps": 40.7412, "raw_monotonicity_t_0.5609_pps_premium": 1.1332, "raw_monotonicity_t_0.7050_bpp": 7.578, "raw_monotonicity_t_0.7050_pps": 36.5155, "raw_monotonicity_t_0.7050_pps_premium": 1.1151, "raw_monotonicity_t_0.9470_bpp": 9.2412, "raw_monotonicity_t_0.9470_pps": 29.9438, "raw_monotonicity_t_0.9470_pps_premium": 1.0531, "raw_monotonicity_t_1.3330_bpp": 12.7365, "raw_monotonicity_t_1.3330_pps": 21.7262, "raw_monotonicity_t_1.3330_pps_premium": 0.9434}, {"Glottocode": "kore1280", "Code": "kor", "Code_Orig": "kor_Hang", "Sentences": 997, "Notes": NaN, "CC_Pages": 1405630472.0, "CC_Urls": 1399528315.0, "Name": "Korean", "Script": "Hang", "Script_Type": "Syllabary", "Bytes_Per_Char": "3 bytes", "Family": "Koreanic", "Full_Classification": "Koreanic", "Minimal_Full_Classification": "Koreanic", "raw_entropy_t_1.9180_bpp": 3.1886, "raw_entropy_t_1.9180_pps": 39.6419, "raw_entropy_t_1.9180_pps_premium": 1.1017, "raw_entropy_t_2.0308_bpp": 3.2915, "raw_entropy_t_2.0308_pps": 38.4022, "raw_entropy_t_2.0308_pps_premium": 1.173, "raw_entropy_t_2.1946_bpp": 3.4675, "raw_entropy_t_2.1946_pps": 36.4534, "raw_entropy_t_2.1946_pps_premium": 1.2605, "raw_entropy_t_2.4712_bpp": 3.8454, "raw_entropy_t_2.4712_pps": 32.8706, "raw_entropy_t_2.4712_pps_premium": 1.4289, "raw_monotonicity_t_0.5609_bpp": 6.128, "raw_monotonicity_t_0.5609_pps": 20.6269, "raw_monotonicity_t_0.5609_pps_premium": 0.5737, "raw_monotonicity_t_0.7050_bpp": 6.4176, "raw_monotonicity_t_0.7050_pps": 19.6961, "raw_monotonicity_t_0.7050_pps_premium": 0.6015, "raw_monotonicity_t_0.9470_bpp": 6.8201, "raw_monotonicity_t_0.9470_pps": 18.5336, "raw_monotonicity_t_0.9470_pps_premium": 0.6518, "raw_monotonicity_t_1.3330_bpp": 7.449, "raw_monotonicity_t_1.3330_pps": 16.9689, "raw_monotonicity_t_1.3330_pps_premium": 0.7368}, {"Glottocode": "nyan1308", "Code": "nya", "Code_Orig": "nya_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 928706.0, "CC_Urls": 925245.0, "Name": "Nyanja", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Atlantic-Congo", "Full_Classification": "Atlantic-Congo > Volta-Congo > Benue-Congo > Bantoid > Southern Bantoid > Narrow Bantu > East Bantu > Tumbuka-Sena-Nyanja > Sena-Nyanja > Nyanjaic", "Minimal_Full_Classification": "Atlantic-Congo > Volta-Congo > Benue-Congo > Bantoid > East Bantu > Tumbuka-Sena-Nyanja > Sena-Nyanja", "raw_entropy_t_1.9180_bpp": 7.5467, "raw_entropy_t_1.9180_pps": 37.6028, "raw_entropy_t_1.9180_pps_premium": 1.045, "raw_entropy_t_2.0308_bpp": 8.3946, "raw_entropy_t_2.0308_pps": 33.8044, "raw_entropy_t_2.0308_pps_premium": 1.0325, "raw_entropy_t_2.1946_bpp": 10.1044, "raw_entropy_t_2.1946_pps": 28.0843, "raw_entropy_t_2.1946_pps_premium": 0.9711, "raw_entropy_t_2.4712_bpp": 15.6623, "raw_entropy_t_2.4712_pps": 18.1184, "raw_entropy_t_2.4712_pps_premium": 0.7876, "raw_monotonicity_t_0.5609_bpp": 6.5721, "raw_monotonicity_t_0.5609_pps": 43.1785, "raw_monotonicity_t_0.5609_pps_premium": 1.201, "raw_monotonicity_t_0.7050_bpp": 7.4967, "raw_monotonicity_t_0.7050_pps": 37.8536, "raw_monotonicity_t_0.7050_pps_premium": 1.1559, "raw_monotonicity_t_0.9470_bpp": 9.5008, "raw_monotonicity_t_0.9470_pps": 29.8686, "raw_monotonicity_t_0.9470_pps_premium": 1.0504, "raw_monotonicity_t_1.3330_bpp": 14.5754, "raw_monotonicity_t_1.3330_pps": 19.4694, "raw_monotonicity_t_1.3330_pps_premium": 0.8454}, {"Glottocode": "roma1327", "Code": "ron", "Code_Orig": "ron_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 1125558850.0, "CC_Urls": 1119333515.0, "Name": "Romanian", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Indo-European", "Full_Classification": "Indo-European > Classical Indo-European > Italic > Latino-Faliscan > Latinic > Imperial Latin > Romance > Eastern Romance > Northern Romanian > Eastern Romanian", "Minimal_Full_Classification": "Indo-European > Italic > Eastern Romance", "raw_entropy_t_1.9180_bpp": 7.0577, "raw_entropy_t_1.9180_pps": 40.0883, "raw_entropy_t_1.9180_pps_premium": 1.1141, "raw_entropy_t_2.0308_bpp": 7.8577, "raw_entropy_t_2.0308_pps": 36.007, "raw_entropy_t_2.0308_pps_premium": 1.0998, "raw_entropy_t_2.1946_bpp": 9.0542, "raw_entropy_t_2.1946_pps": 31.2487, "raw_entropy_t_2.1946_pps_premium": 1.0805, "raw_entropy_t_2.4712_bpp": 11.3282, "raw_entropy_t_2.4712_pps": 24.9759, "raw_entropy_t_2.4712_pps_premium": 1.0857, "raw_monotonicity_t_0.5609_bpp": 7.0872, "raw_monotonicity_t_0.5609_pps": 39.9218, "raw_monotonicity_t_0.5609_pps_premium": 1.1104, "raw_monotonicity_t_0.7050_bpp": 7.8487, "raw_monotonicity_t_0.7050_pps": 36.0481, "raw_monotonicity_t_0.7050_pps_premium": 1.1008, "raw_monotonicity_t_0.9470_bpp": 9.3091, "raw_monotonicity_t_0.9470_pps": 30.3932, "raw_monotonicity_t_0.9470_pps_premium": 1.0689, "raw_monotonicity_t_1.3330_bpp": 11.9138, "raw_monotonicity_t_1.3330_pps": 23.7482, "raw_monotonicity_t_1.3330_pps_premium": 1.0312}, {"Glottocode": "amer1254", "Code": "spa", "Code_Orig": "spa_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 8721329091.0, "CC_Urls": 8661896197.0, "Name": "Spanish (Latin American)", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Indo-European", "Full_Classification": "Indo-European > Classical Indo-European > Italic > Latino-Faliscan > Latinic > Imperial Latin > Romance > Italo-Western Romance > Western Romance > Shifted Western Romance > Southwestern Shifted Romance > West Ibero-Romance > Castilic > Spanish", "Minimal_Full_Classification": "Indo-European > Italic > Italo-Western Romance > Western Romance > Shifted Western Romance > Southwestern Shifted Romance > West Ibero-Romance > Castilic", "raw_entropy_t_1.9180_bpp": 7.6203, "raw_entropy_t_1.9180_pps": 39.2728, "raw_entropy_t_1.9180_pps_premium": 1.0914, "raw_entropy_t_2.0308_bpp": 8.2746, "raw_entropy_t_2.0308_pps": 36.1675, "raw_entropy_t_2.0308_pps_premium": 1.1047, "raw_entropy_t_2.1946_bpp": 9.2977, "raw_entropy_t_2.1946_pps": 32.1876, "raw_entropy_t_2.1946_pps_premium": 1.113, "raw_entropy_t_2.4712_bpp": 11.3304, "raw_entropy_t_2.4712_pps": 26.4132, "raw_entropy_t_2.4712_pps_premium": 1.1482, "raw_monotonicity_t_0.5609_bpp": 7.1099, "raw_monotonicity_t_0.5609_pps": 42.0923, "raw_monotonicity_t_0.5609_pps_premium": 1.1708, "raw_monotonicity_t_0.7050_bpp": 8.0038, "raw_monotonicity_t_0.7050_pps": 37.3912, "raw_monotonicity_t_0.7050_pps_premium": 1.1418, "raw_monotonicity_t_0.9470_bpp": 9.5039, "raw_monotonicity_t_0.9470_pps": 31.4895, "raw_monotonicity_t_0.9470_pps_premium": 1.1074, "raw_monotonicity_t_1.3330_bpp": 11.8737, "raw_monotonicity_t_1.3330_pps": 25.2046, "raw_monotonicity_t_1.3330_pps_premium": 1.0944}, {"Glottocode": "serb1264", "Code": "srp", "Code_Orig": "srp_Cyrl", "Sentences": 997, "Notes": NaN, "CC_Pages": 428606923.0, "CC_Urls": 426190099.0, "Name": "Serbian", "Script": "Cyrl", "Script_Type": "Alphabet", "Bytes_Per_Char": "2 bytes", "Family": "Indo-European", "Full_Classification": "Indo-European > Classical Indo-European > Balto-Slavic > Slavic > South Slavic > Western South Slavic > Serbian-Croatian-Bosnian > Shtokavski > New Shtokavian > Eastern Herzegovinian Shtokavian", "Minimal_Full_Classification": "Indo-European > Balto-Slavic > Slavic > South Slavic > Western South Slavic > Serbian-Croatian-Bosnian", "raw_entropy_t_1.9180_bpp": 7.3752, "raw_entropy_t_1.9180_pps": 33.8646, "raw_entropy_t_1.9180_pps_premium": 0.9411, "raw_entropy_t_2.0308_bpp": 8.0116, "raw_entropy_t_2.0308_pps": 31.1745, "raw_entropy_t_2.0308_pps_premium": 0.9522, "raw_entropy_t_2.1946_bpp": 9.0807, "raw_entropy_t_2.1946_pps": 27.5045, "raw_entropy_t_2.1946_pps_premium": 0.951, "raw_entropy_t_2.4712_bpp": 11.4246, "raw_entropy_t_2.4712_pps": 21.8616, "raw_entropy_t_2.4712_pps_premium": 0.9503, "raw_monotonicity_t_0.5609_bpp": 6.792, "raw_monotonicity_t_0.5609_pps": 36.7723, "raw_monotonicity_t_0.5609_pps_premium": 1.0228, "raw_monotonicity_t_0.7050_bpp": 7.5255, "raw_monotonicity_t_0.7050_pps": 33.1886, "raw_monotonicity_t_0.7050_pps_premium": 1.0135, "raw_monotonicity_t_0.9470_bpp": 8.8827, "raw_monotonicity_t_0.9470_pps": 28.1174, "raw_monotonicity_t_0.9470_pps_premium": 0.9888, "raw_monotonicity_t_1.3330_bpp": 11.3341, "raw_monotonicity_t_1.3330_pps": 22.0361, "raw_monotonicity_t_1.3330_pps_premium": 0.9568}, {"Glottocode": "tami1289", "Code": "tam", "Code_Orig": "tam_Taml", "Sentences": 997, "Notes": NaN, "CC_Pages": 85165919.0, "CC_Urls": 84823478.0, "Name": "Tamil", "Script": "Taml", "Script_Type": "Abugida", "Bytes_Per_Char": "3 bytes", "Family": "Dravidian", "Full_Classification": "Dravidian > South Dravidian > South Dravidian I > Tamil-Kannada > Tamil-Kota > Tamil-Toda > Tamil-Irula > Tamil-Kodagu > Tamil-Malayalam > Tamiloid > Tamil-Paliyan", "Minimal_Full_Classification": "Dravidian > South Dravidian I > Tamil-Kota > Tamiloid", "raw_entropy_t_1.9180_bpp": 8.1761, "raw_entropy_t_1.9180_pps": 35.8526, "raw_entropy_t_1.9180_pps_premium": 0.9964, "raw_entropy_t_2.0308_bpp": 8.955, "raw_entropy_t_2.0308_pps": 32.7342, "raw_entropy_t_2.0308_pps_premium": 0.9998, "raw_entropy_t_2.1946_bpp": 10.2636, "raw_entropy_t_2.1946_pps": 28.5607, "raw_entropy_t_2.1946_pps_premium": 0.9875, "raw_entropy_t_2.4712_bpp": 14.1611, "raw_entropy_t_2.4712_pps": 20.7001, "raw_entropy_t_2.4712_pps_premium": 0.8998, "raw_monotonicity_t_0.5609_bpp": 7.6142, "raw_monotonicity_t_0.5609_pps": 38.4985, "raw_monotonicity_t_0.5609_pps_premium": 1.0708, "raw_monotonicity_t_0.7050_bpp": 8.6191, "raw_monotonicity_t_0.7050_pps": 34.01, "raw_monotonicity_t_0.7050_pps_premium": 1.0386, "raw_monotonicity_t_0.9470_bpp": 10.6256, "raw_monotonicity_t_0.9470_pps": 27.5878, "raw_monotonicity_t_0.9470_pps_premium": 0.9702, "raw_monotonicity_t_1.3330_bpp": 15.5348, "raw_monotonicity_t_1.3330_pps": 18.8696, "raw_monotonicity_t_1.3330_pps_premium": 0.8193}, {"Glottocode": "thai1261", "Code": "tha", "Code_Orig": "tha_Thai", "Sentences": 997, "Notes": NaN, "CC_Pages": 745804664.0, "CC_Urls": 741927782.0, "Name": "Thai", "Script": "Thai", "Script_Type": "Abugida", "Bytes_Per_Char": "3 bytes", "Family": "Tai-Kadai", "Full_Classification": "Tai-Kadai > Kam-Tai > Daic-Beic > Daic > Central-Southwestern Tai > Wenma-Southwestern Tai > Sapa-Southwestern Tai > Southwestern Tai > Southwestern Thai PH > Lao-Thai", "Minimal_Full_Classification": "Tai-Kadai > Southwestern Thai PH", "raw_entropy_t_1.9180_bpp": 5.3564, "raw_entropy_t_1.9180_pps": 45.0411, "raw_entropy_t_1.9180_pps_premium": 1.2517, "raw_entropy_t_2.0308_bpp": 5.7053, "raw_entropy_t_2.0308_pps": 42.2869, "raw_entropy_t_2.0308_pps_premium": 1.2916, "raw_entropy_t_2.1946_bpp": 6.3226, "raw_entropy_t_2.1946_pps": 38.1585, "raw_entropy_t_2.1946_pps_premium": 1.3194, "raw_entropy_t_2.4712_bpp": 7.8906, "raw_entropy_t_2.4712_pps": 30.5757, "raw_entropy_t_2.4712_pps_premium": 1.3291, "raw_monotonicity_t_0.5609_bpp": 6.6693, "raw_monotonicity_t_0.5609_pps": 36.1745, "raw_monotonicity_t_0.5609_pps_premium": 1.0062, "raw_monotonicity_t_0.7050_bpp": 7.0035, "raw_monotonicity_t_0.7050_pps": 34.4483, "raw_monotonicity_t_0.7050_pps_premium": 1.0519, "raw_monotonicity_t_0.9470_bpp": 7.5531, "raw_monotonicity_t_0.9470_pps": 31.9418, "raw_monotonicity_t_0.9470_pps_premium": 1.1233, "raw_monotonicity_t_1.3330_bpp": 8.4553, "raw_monotonicity_t_1.3330_pps": 28.5336, "raw_monotonicity_t_1.3330_pps_premium": 1.239}, {"Glottocode": "viet1252", "Code": "vie", "Code_Orig": "vie_Latn", "Sentences": 997, "Notes": NaN, "CC_Pages": 1815676717.0, "CC_Urls": 1803286122.0, "Name": "Vietnamese", "Script": "Latn", "Script_Type": "Alphabet", "Bytes_Per_Char": "1 byte", "Family": "Austroasiatic", "Full_Classification": "Austroasiatic > Vietic > Viet-Muong", "Minimal_Full_Classification": "Austroasiatic > Vietic", "raw_entropy_t_1.9180_bpp": 5.4739, "raw_entropy_t_1.9180_pps": 48.3701, "raw_entropy_t_1.9180_pps_premium": 1.3443, "raw_entropy_t_2.0308_bpp": 5.8217, "raw_entropy_t_2.0308_pps": 45.4804, "raw_entropy_t_2.0308_pps_premium": 1.3892, "raw_entropy_t_2.1946_bpp": 6.4877, "raw_entropy_t_2.1946_pps": 40.8114, "raw_entropy_t_2.1946_pps_premium": 1.4111, "raw_entropy_t_2.4712_bpp": 8.149, "raw_entropy_t_2.4712_pps": 32.4915, "raw_entropy_t_2.4712_pps_premium": 1.4124, "raw_monotonicity_t_0.5609_bpp": 6.8982, "raw_monotonicity_t_0.5609_pps": 38.3831, "raw_monotonicity_t_0.5609_pps_premium": 1.0676, "raw_monotonicity_t_0.7050_bpp": 7.3952, "raw_monotonicity_t_0.7050_pps": 35.8034, "raw_monotonicity_t_0.7050_pps_premium": 1.0933, "raw_monotonicity_t_0.9470_bpp": 8.1282, "raw_monotonicity_t_0.9470_pps": 32.5747, "raw_monotonicity_t_0.9470_pps_premium": 1.1456, "raw_monotonicity_t_1.3330_bpp": 9.1229, "raw_monotonicity_t_1.3330_pps": 29.0231, "raw_monotonicity_t_1.3330_pps_premium": 1.2602}];
+const MODES_META = {"raw_entropy": {"label": "Entropy", "score": "Raw", "thresholds": [1.918, 2.0308, 2.1946, 2.4712], "anchor_idx": 1}, "raw_monotonicity": {"label": "Monotonicity", "score": "Raw", "thresholds": [0.5609, 0.705, 0.947, 1.333], "anchor_idx": 1}};
+const GROUPS = ["0.5–0.6", "0.6–0.7", "0.7–0.8", "0.8–0.9", "0.9–1", "1–1.1", "1.1–1.2", "1.2–1.3", "1.3–1.4", "1.4–1.5", "1.5–1.6", "1.6–1.7", "1.7+"];
+const BOUNDS = [0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,Infinity];
+const BASE_H = 360; // chart height in px when max bar = BASE_MAX
+const BASE_MAX = 20;
+
+const FAM_COLORS = {
+  "Atlantic-Congo":"#d85d5d","Afro-Asiatic":"#d89b5d","Indo-European":"#d8d85d","Uralic":"#9bd85d",
+  "Kartvelian":"#5dd85d","Sino-Tibetan":"#5dd89b","Koreanic":"#5dd8d8","Japonic":"#5d9bd8",
+  "Dravidian":"#5d5dd8","Tai-Kadai":"#9b5dd8","Austroasiatic":"#d85dd8"
+};
+const SCRTYPE_COLORS = {
+  "Alphabet":      "#b8dde8",
+  "Abjad":         "#86bdd0",
+  "Abugida":       "#559db8",
+  "Syllabary":     "#447b8c", 
+  "Logosyllabary": "linear-gradient(45deg, #1c353d 25%, #447b8c 25%, #447b8c 50%, #1c353d 50%, #1c353d 75%, #447b8c 75%, #447b8c 100%)",
+  "Logographic":   "#1c353d"
+};
+const BYTES_ORDER = ["1 byte","2 bytes","3 bytes"];
+const CC_TIERS = ["no data","<1M","1M–10M","10M–100M","100M–1B","1B–10B","10B+"];
+const CC_COLORS = {"no data":"#ffffff","<1M":"#d0d0d0","1M–10M":"#a0a0a0","10M–100M":"#707070","100M–1B":"#484848","1B–10B":"#282828","10B+":"#101010"};
+
+// ── Byte patterns: data-URI SVGs, no external <defs> needed ──────────────────
+function makeBytesPattern(b) {
+  // detect color scheme
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const bg = dark ? '%232a2a2a' : '%23f0f0f0';
+  const fg = dark ? '%23909090' : '%23666666';
+  let body = `<rect width='8' height='8' fill='${bg}'/>`;
+  if (b === '1 byte') {
+    body += `<line x1='0' y1='4' x2='8' y2='4' stroke='${fg}' stroke-width='1.5'/>`;
+  } else if (b === '2 bytes') {
+    body += `<circle cx='4' cy='4' r='1.8' fill='${fg}'/>`;
+  } else {
+    body += `<line x1='0' y1='4' x2='8' y2='4' stroke='${fg}' stroke-width='1.2'/>`;
+    body += `<line x1='4' y1='0' x2='4' y2='8' stroke='${fg}' stroke-width='1.2'/>`;
+  }
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8'>${body}</svg>`;
+  return `url("data:image/svg+xml,${svg}")`;
+}
+
+// Build patterns once; rebuild on color scheme change
+let BYTES_PATTERNS = {};
+function rebuildBytesPatterns() {
+  BYTES_ORDER.forEach(b => { BYTES_PATTERNS[b] = makeBytesPattern(b); });
+}
+rebuildBytesPatterns();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  rebuildBytesPatterns();
+  render();
+});
+
+function ccTier(l) {
+  const p = l.CC_Pages;
+  if (p == null || isNaN(p)) return 'no data';
+  if (p < 1e6)   return '<1M';
+  if (p < 1e7)   return '1M–10M';
+  if (p < 1e8)   return '10M–100M';
+  if (p < 1e9)   return '100M–1B';
+  if (p < 1e10)  return '1B–10B';
+  return '10B+';
+}
+
+let curScore='raw', curMode='entropy', curTIdx=1;
+let showFam=true, showScr=false, showBytes=false, showCC=false;
+let activeGroup=null, groupData=[];
+let CHART_H = BASE_H, MAX_VAL = BASE_MAX;
+
+function getCaseKey() { return `${curScore}_${curMode}`; }
+function getColName() {
+  const meta = MODES_META[getCaseKey()];
+  return `${getCaseKey()}_t_${meta.thresholds[curTIdx].toFixed(4)}_pps_premium`;
+}
+function getPremium(lang) { const v=lang[getColName()]; return (v!=null&&!isNaN(v))?v:0; }
+function groupFor(p) {
+  if(p<BOUNDS[0]) return GROUPS[0];
+  for(let i=0;i<GROUPS.length;i++) if(p>=BOUNDS[i]&&p<BOUNDS[i+1]) return GROUPS[i];
+  return GROUPS[GROUPS.length-1];
+}
+
+function downloadCSV() {
+  if (typeof LANG_DATA === 'undefined' || !LANG_DATA.length) {
+    alert("Data is not available for download.");
+    return;
+  }
+
+  // Define headers for the CSV file
+  const headers = ["Language Name", "Language Family", "Writing System", "Bytes Per Char", "CC Pages", "Current Metric Column", "Patching Premium Score"];
+  
+  // Get active configurations for the filename and data tracking
+  const currentMetricKey = getColName();
+  const currentModeLabel = MODES_META[getCaseKey()].label;
+  const currentThreshold = MODES_META[getCaseKey()].thresholds[curTIdx].toFixed(4);
+  
+  // Map rows from LANG_DATA
+  const rows = LANG_DATA.map(lang => {
+    const name = `"${lang.Name.replace(/"/g, '""')}"`;
+    const family = `"${(lang.Family || '').replace(/"/g, '""')}"`;
+    const script = `"${(lang.Script_Type || '').replace(/"/g, '""')}"`;
+    const bytes = `"${lang.Bytes_Per_Char || '1 byte'}"`;
+    const ccPages = lang.CC_Pages != null ? lang.CC_Pages : "no data";
+    const premium = getPremium(lang).toFixed(4);
+
+    return [name, family, script, bytes, ccPages, currentMetricKey, premium];
+  });
+
+  // Combine headers and rows into a unified string
+  const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+
+  // Create a blob and trigger browser download download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement("a");
+  
+  if (link.download !== undefined) { 
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    
+    // Friendly contextual filename matching current parameters
+    const filename = `blt_fairness_${currentModeLabel.toLowerCase()}_t${currentThreshold}.csv`;
+    link.setAttribute("download", filename);
+    
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+}
+
+function setMode(m) {
+  curMode = m;
+  if (m !== 'entropy') curScore = 'raw';  // norm only available for entropy
+  curTIdx = MODES_META[getCaseKey()].anchor_idx;
+  ['entropy', 'monotonicity'].forEach(x =>
+    document.getElementById(`btn-mode-${x}`).classList.toggle('active', x === m));
+  renderThresholdBtns();
+  render();
+}
+
+function renderThresholdBtns() {
+  const meta = MODES_META[getCaseKey()];
+  const c = document.getElementById('threshold-btns');
+  c.innerHTML = '';
+
+  const stops = meta.thresholds;
+  const anchorIdx = meta.anchor_idx;
+  const minV = stops[0], maxV = stops[stops.length - 1];
+  const thumbR = 8;
+  const toPos = v => `calc(${((v - minV) / (maxV - minV)).toFixed(5)} * (100% - ${2 * thumbR}px) + ${thumbR}px)`;
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display:flex;flex-direction:column;gap:2px;width:100%';
+
+  // ── Slider operates on actual values ────────────────────────────────────────
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = minV;
+  slider.max = maxV;
+  slider.step = 'any';
+  slider.value = stops[curTIdx];
+  slider.style.cssText = 'width:100%;cursor:pointer;margin:0';
+
+  slider.oninput = () => {
+    // Snap to nearest stop
+    const v = +slider.value;
+    const nearest = stops.reduce((best, t, i) =>
+      Math.abs(t - v) < Math.abs(stops[best] - v) ? i : best, 0);
+    curTIdx = nearest;
+    slider.value = stops[nearest]; // snap thumb
+    updateLabels();
+    render();
+  };
+
+  // ── Proportional tick labels ─────────────────────────────────────────────
+  const tickRow = document.createElement('div');
+  tickRow.style.cssText = 'position:relative;height:16px;width:100%';
+
+  const labelEls = stops.map((t, i) => {
+    const el = document.createElement('div');
+    el.style.cssText = `position:absolute;transform:translateX(-50%);left:${toPos(t)};
+      font-size:9.5px;white-space:nowrap;font-variant-numeric:tabular-nums;cursor:pointer`;
+    el.textContent = t.toFixed(4) + (i === anchorIdx ? ' ★' : '');
+    el.onclick = () => { curTIdx = i; slider.value = stops[i]; updateLabels(); render(); };
+    tickRow.appendChild(el);
+    return el;
+  });
+
+  function updateLabels() {
+    labelEls.forEach((el, i) => {
+      el.style.opacity = i === curTIdx ? '0.9' : '0.35';
+      el.style.fontWeight = i === curTIdx ? '600' : '';
+    });
+  }
+  updateLabels();
+
+  const sliderCol = document.createElement('div');
+  sliderCol.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:260px;max-width:420px';
+  sliderCol.appendChild(slider);
+  sliderCol.appendChild(tickRow);
+
+  const sliderRow = document.createElement('div');
+  sliderRow.style.cssText = 'display:flex;align-items:center;gap:20px';
+  sliderRow.appendChild(sliderCol);
+
+  wrapper.appendChild(sliderRow);
+  c.appendChild(wrapper);
+}
+
+function toggleBar(which) {
+  if(which==='fam')   showFam   =!showFam;
+  if(which==='scr')   showScr   =!showScr;
+  if(which==='bytes') showBytes =!showBytes;
+  if(which==='cc')    showCC    =!showCC;
+  document.getElementById('btn-fam').classList.toggle('active',showFam);
+  document.getElementById('btn-scr').classList.toggle('active',showScr);
+  document.getElementById('btn-bytes').classList.toggle('active',showBytes);
+  document.getElementById('btn-cc').classList.toggle('active',showCC);
+  GROUPS.forEach((_,gi)=>{
+    document.getElementById(`fam-half-${gi}`)?.classList.toggle('hidden',!showFam);
+    document.getElementById(`scr-half-${gi}`)?.classList.toggle('hidden',!showScr);
+    document.getElementById(`bytes-half-${gi}`)?.classList.toggle('hidden',!showBytes);
+    document.getElementById(`cc-half-${gi}`)?.classList.toggle('hidden',!showCC);
+  });
+  renderLegends();
+  if(activeGroup!==null) renderPanel(activeGroup,null,null);
+}
+
+// ── px() uses current MAX_VAL and CHART_H ────────────────────────────────────
+function px(v) { return Math.round((v/MAX_VAL)*CHART_H); }
+function distributeHeights(counts,total) {
+  const target=px(total);
+  if(target<=0) return counts.map(()=>0);
+  const raw=counts.map(n=>(n/total)*target);
+  const floors=raw.map(Math.floor);
+  let rem=target-floors.reduce((a,b)=>a+b,0);
+  const idx=raw.map((r,i)=>[r-Math.floor(r),i]).sort((a,b)=>b[0]-a[0]).map(x=>x[1]);
+  for(let i=0;i<rem;i++) floors[idx[i]]++;
+  return floors;
+}
+
+function computeGroupData() {
+  return GROUPS.map(g=>{
+    const langs=LANG_DATA.filter(l=>groupFor(getPremium(l))===g);
+    const fam={},scr={},bytes={},cc={};
+    langs.forEach(l=>{
+      fam[l.Family]=(fam[l.Family]||0)+1;
+      scr[l.Script_Type]=(scr[l.Script_Type]||0)+1;
+      const b=l.Bytes_Per_Char||'1 byte'; bytes[b]=(bytes[b]||0)+1;
+      const c=ccTier(l); cc[c]=(cc[c]||0)+1;
+    });
+    return {total:langs.length,langs,fam,scr,bytes,cc};
+  });
+}
+
+function renderYAxis() {
+  const yAxis=document.getElementById('y-axis');
+  yAxis.style.height=CHART_H+'px';
+  yAxis.style.position='relative';
+  yAxis.innerHTML='';
+  // nice tick values
+  const step = 2; // Hardcoded step size
+  const ticks=[0];
+  for(let v=step; v<=MAX_VAL; v+=step) ticks.push(v);
+  ticks.forEach(v=>{
+    const t=document.createElement('div');
+    t.className='axis-tick'; t.textContent=v;
+    t.style.position='absolute'; t.style.right='0';
+    // align bottom of tick text with the grid line
+    t.style.bottom=(px(v)-6)+'px';
+    yAxis.appendChild(t);
+  });
+}
+
+function renderBars() {
+  groupData=computeGroupData();
+  const totals=groupData.map(g=>g.total);
+  const dataMax=Math.max(...totals,1);
+  // expand if data exceeds base, keep exact multiple for clean axis
+  MAX_VAL = dataMax <= BASE_MAX ? BASE_MAX : dataMax;
+  // scale chart height proportionally so bar widths stay the same
+  CHART_H = Math.round((MAX_VAL / BASE_MAX) * BASE_H);
+
+  renderYAxis();
+
+  const barsRow=document.getElementById('bars-row');
+  barsRow.style.height=CHART_H+'px';
+  barsRow.innerHTML='';
+
+  groupData.forEach((gd,gi)=>{
+    const col=document.createElement('div');
+    col.className='group-col';
+
+    const pair=document.createElement('div');
+    pair.className='bar-pair'+(activeGroup===gi?' selected':'');
+    pair.id=`pair-${gi}`;
+
+    function makeHalf(id, entries, bgFn, useDistribute) {
+      const half=document.createElement('div');
+      const hidden=(id==='fam'&&!showFam)||(id==='scr'&&!showScr)||(id==='bytes'&&!showBytes)||(id==='cc'&&!showCC);
+      half.className='bar-half'+(hidden?' hidden':'');
+      half.id=`${id}-half-${gi}`;
+      const valid=entries.filter(([,n])=>n>0);
+      if(valid.length>0 && gd.total>0){
+        const heights=useDistribute
+          ? distributeHeights(valid.map(([,n])=>n), gd.total)
+          : valid.map(([,n])=>px(n));
+        valid.forEach(([key],i)=>{
+          const seg=document.createElement('div');
+          seg.className='bar-seg';
+          seg.style.height=heights[i]+'px';
+          seg.style.background=bgFn(key);
+          half.appendChild(seg);
+        });
+      }
+      return half;
+    }
+
+    pair.appendChild(makeHalf('fam',
+      Object.keys(FAM_COLORS).map(f=>[f,gd.fam[f]||0]),
+      k=>FAM_COLORS[k]||'#888', true));
+    pair.appendChild(makeHalf('scr',
+      ['Logographic','Logosyllabary','Syllabary','Abugida','Abjad','Alphabet'].map(s=>[s,gd.scr[s]||0]),
+      k=>SCRTYPE_COLORS[k]||'#888', false));
+    pair.appendChild(makeHalf('bytes',
+      BYTES_ORDER.map(b=>[b,gd.bytes[b]||0]),
+      k=>BYTES_PATTERNS[k]||'#888', true));
+    pair.appendChild(makeHalf('cc',
+      [...CC_TIERS].reverse().map(t=>[t,gd.cc[t]||0]),
+      k=>CC_COLORS[k]||'#888', false));
+
+    pair.onclick=()=>{
+      document.querySelectorAll('.bar-pair').forEach(p=>p.classList.remove('selected'));
+      if(activeGroup===gi){activeGroup=null;closePanel();return;}
+      activeGroup=gi; pair.classList.add('selected');
+      renderPanel(gi,null,null);
+    };
+
+    const total=document.createElement('div');
+    total.className='bar-total'; total.textContent=gd.total||'';
+    const label=document.createElement('div');
+    label.className='bar-label'; label.textContent=GROUPS[gi];
+
+    col.appendChild(pair); col.appendChild(total); col.appendChild(label);
+    barsRow.appendChild(col);
+  });
+}
+
+// ── Bytes swatch for legend/panel ────────────────────────────────────────────
+function bytesSwatch(b) {
+  // Use a small canvas-free inline SVG img element for legend
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const bg = dark ? '#2a2a2a' : '#f0f0f0';
+  const fg = dark ? '#909090' : '#666666';
+  let lines = `<rect width="8" height="8" fill="${bg}"/>`;
+  if(b==='1 byte') lines+=`<line x1="0" y1="4" x2="8" y2="4" stroke="${fg}" stroke-width="1.5"/>`;
+  else if(b==='2 bytes') lines+=`<circle cx="4" cy="4" r="1.8" fill="${fg}"/>`;
+  else { lines+=`<line x1="0" y1="4" x2="8" y2="4" stroke="${fg}" stroke-width="1.2"/><line x1="4" y1="0" x2="4" y2="8" stroke="${fg}" stroke-width="1.2"/>`; }
+  const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14">${lines}</svg>`;
+  const encoded = encodeURIComponent(svgStr);
+  return `<img src="data:image/svg+xml,${encoded}" width="14" height="14" style="border-radius:2px;vertical-align:middle;flex-shrink:0" class="bytes-legend-swatch">`;
+}
+
+function renderLegends() {
+  const container=document.getElementById('legends-container');
+  container.innerHTML='';
+  function addGroup(title,html){
+    const grp=document.createElement('div');
+    grp.className='legend-group';
+    grp.innerHTML=`<div class="section-label">${title}</div><div class="legend-row">${html}</div>`;
+    container.appendChild(grp);
+  }
+  if(showFam){
+    const items=Object.entries(FAM_COLORS).filter(([f])=>LANG_DATA.some(l=>l.Family===f))
+      .map(([f,c])=>`<span class="legend-item"><span class="legend-swatch" style="background:${c}"></span>${f}</span>`).join('');
+    addGroup('Language family',items);
+  }
+  if(showScr){
+    const items=Object.entries(SCRTYPE_COLORS)
+      .map(([t,c])=>`<span class="legend-item"><span class="legend-swatch" style="background:${c}"></span>${t}</span>`).join('');
+    addGroup('Writing system type',items);
+  }
+  if(showBytes){
+    const items=BYTES_ORDER.map(b=>`<span class="legend-item" style="display:flex;align-items:center;gap:4px">${bytesSwatch(b)}<span>${b}</span></span>`).join('');
+    addGroup('Bytes per character',items);
+  }
+  if(showCC){
+    const items=CC_TIERS.map(t=>{
+      const brd=(t==='1B–10B'||t==='10B+'||t==='no data')?';border:1px solid #555':'';
+      return `<span class="legend-item"><span class="legend-swatch" style="background:${CC_COLORS[t]}${brd}"></span>${t}</span>`;
+    }).join('');
+    addGroup('CC training data (pages)',items);
+  }
+}
+
+function renderPanel(gi,filterType,filterVal) {
+  const gd=groupData[gi];
+  const panel=document.getElementById('panel');
+  if(filterType){
+    let langs,swatch,color='#888';
+    if(filterType==='fam'){
+      langs=gd.langs.filter(l=>l.Family===filterVal);
+      color=FAM_COLORS[filterVal]||'#888';
+      swatch=`<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${color};vertical-align:middle;"></span>`;
+    } else if(filterType==='scr'){
+      langs=gd.langs.filter(l=>l.Script_Type===filterVal);
+      color=SCRTYPE_COLORS[filterVal]||'#888';
+      swatch=`<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${color};vertical-align:middle;"></span>`;
+    } else if(filterType==='bytes'){
+      langs=gd.langs.filter(l=>(l.Bytes_Per_Char||'1 byte')===filterVal);
+      swatch=bytesSwatch(filterVal);
+    } else {
+      langs=gd.langs.filter(l=>ccTier(l)===filterVal);
+      const brd=(filterVal==='1B–10B'||filterVal==='10B+'||filterVal==='no data')?';border:1px solid #555':'';
+      color=CC_COLORS[filterVal]||'#888';
+      swatch=`<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${color}${brd};vertical-align:middle;"></span>`;
+    }
+    langs.sort((a,b)=>getPremium(a)-getPremium(b));
+    panel.innerHTML=`
+      <div class="lang-list-header">
+        <button class="lang-list-back" onclick="renderPanel(${gi},null,null)">← back</button>
+        <span class="lang-list-title">${swatch} ${filterVal} · group ${GROUPS[gi]}</span>
+        <span style="font-size:11px;opacity:0.45">${langs.length} language${langs.length!==1?'s':''}</span>
+      </div>
+      <div class="lang-tags">${langs.map(l=>`<span class="lang-tag" style="background:${color}22;border:1px solid ${color}44">
+        ${l.Name} <span class="lang-prem">${getPremium(l).toFixed(2)}×</span></span>`).join('')}</div>`;
+    return;
+  }
+
+  function makeRows(entries,colorFn,swatchFn,type){
+    return entries.map(([key,count])=>{
+      const sw=swatchFn?swatchFn(key):`<span class="fam-swatch" style="background:${colorFn(key)}"></span>`;
+      const safe=key.replace(/'/g,"\\'");
+      return `<div class="fam-row" onclick="renderPanel(${gi},'${type}','${safe}')">
+        ${sw}<span class="fam-name">${key}</span><span class="fam-count">${count}</span><span class="fam-arrow">›</span></div>`;
+    }).join('');
+  }
+
+  let cols='';
+  if(showFam){
+    const e=Object.entries(gd.fam).sort((a,b)=>b[1]-a[1]);
+    cols+=`<div class="panel-col"><div class="col-title">Language family</div>${makeRows(e,k=>FAM_COLORS[k]||'#888',null,'fam')}</div>`;
+  }
+  if(showScr){
+    const e=Object.entries(gd.scr).sort((a,b)=>b[1]-a[1]);
+    cols+=`<div class="panel-col"><div class="col-title">Writing system</div>${makeRows(e,k=>SCRTYPE_COLORS[k]||'#888',null,'scr')}</div>`;
+  }
+  if(showBytes){
+    const e=BYTES_ORDER.map(b=>[b,gd.bytes[b]||0]).filter(([,n])=>n>0);
+    cols+=`<div class="panel-col"><div class="col-title">Bytes / char</div>${makeRows(e,null,k=>bytesSwatch(k),'bytes')}</div>`;
+  }
+  if(showCC){
+    const e=CC_TIERS.map(t=>[t,gd.cc[t]||0]).filter(([,n])=>n>0).reverse();
+    const brd=k=>(k==='1B–10B'||k==='10B+'||k==='no data')?';border:1px solid #555':'';
+    cols+=`<div class="panel-col"><div class="col-title">CC training data</div>${
+      e.map(([key,count])=>`<div class="fam-row" onclick="renderPanel(${gi},'cc','${key.replace(/'/g,"\\'")}')">
+        <span class="fam-swatch" style="background:${CC_COLORS[key]}${brd(key)}"></span>
+        <span class="fam-name">${key}</span><span class="fam-count">${count}</span><span class="fam-arrow">›</span></div>`).join('')
+    }</div>`;
+  }
+
+  panel.innerHTML=`
+    <div class="panel-header">
+      <div><span class="panel-title">Group ${GROUPS[gi]}</span><span class="panel-total">${gd.total} language${gd.total!==1?'s':''}</span></div>
+      <button class="close-btn" onclick="closePanel()">×</button>
+    </div>
+    <div class="panel-cols">${cols}</div>`;
+}
+
+function closePanel(){
+  activeGroup=null;
+  document.querySelectorAll('.bar-pair').forEach(p=>p.classList.remove('selected'));
+  document.getElementById('panel').innerHTML='<span class="panel-hint">Click a bar group to explore families and writing systems.</span>';
+}
+
+// Paste this initialization snippet right at the start of your <script> logic
+const themeBtn = document.getElementById('theme-toggle');
+const htmlEl = document.documentElement;
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+htmlEl.dataset.theme = prefersDark ? 'dark' : 'light';
+themeBtn.textContent = prefersDark ? '☀️' : '🌙';
+
+themeBtn.addEventListener('click', () => {
+  const isCurrentlyDark = htmlEl.dataset.theme === 'dark';
+  htmlEl.dataset.theme = isCurrentlyDark ? 'light' : 'dark';
+  themeBtn.textContent = isCurrentlyDark ? '🌙' : '☀️';
+  
+  // Optional: If your code uses a variable like `langColor` inside a dynamic render loop, 
+  // you can call your chart update function here (e.g., render() or updateChart())
+});
+
+function render(){ closePanel(); renderBars(); }
+
+renderThresholdBtns(); renderLegends(); render();
+</script>
+</body>
+</html>
