@@ -225,7 +225,7 @@ const SCRIPT_DATA = [
   { code:"Nkoo",            label:"N’Ko",              type:"Alphabet",    tier:3, fams: SCRIPT_FAM_LANGS["Nkoo"] },
   { code:"Arab",            label:"Arabic",            type:"Abjad",       tier:2, fams: SCRIPT_FAM_LANGS["Arab"] },
   { code:"Hebr",            label:"Hebrew",            type:"Abjad",       tier:2, fams: SCRIPT_FAM_LANGS["Hebr"] },
-  { code:"Ethi",            label:"Ethiopic",          type:"Abugida",     tier:3, fams: SCRIPT_FAM_LANGS["Ethi"] },
+  { code:"Ethi",            label:"Ethiopic",          type:"Syllabary",   tier:3, fams: SCRIPT_FAM_LANGS["Ethi"] },
   { code:"Tibt",            label:"Tibetan",           type:"Abugida",     tier:3, fams: SCRIPT_FAM_LANGS["Tibt"] },
   { code:"Deva",            label:"Devanagari",        type:"Abugida",     tier:3, fams: SCRIPT_FAM_LANGS["Deva"] },
   { code:"Beng",            label:"Bengali",           type:"Abugida",     tier:3, fams: SCRIPT_FAM_LANGS["Beng"] },
@@ -413,7 +413,7 @@ function render() {
 
   const totalLangs = SCRIPT_DATA.reduce((s,d) => s + Object.values(d.fams).reduce((a,l)=>a+l.length,0), 0);
 
-  const typeOrder = ['Alphabet','Abjad','Abugida','Syllabary','Logosyllabary','Logographic'];
+  const typeOrder = ['Alphabet','Abugida','Abjad','Syllabary','Logosyllabary','Logographic'];
   const sortedScriptData = typeOrder.flatMap(type =>
     SCRIPT_DATA
       .filter(d => d.type === type)

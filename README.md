@@ -6,21 +6,21 @@ Supplementary material for my Master's thesis *All Bytes Are Equal, but Some Byt
 
 | Folder | Content |
 |---|---|
+| `entropy_profile_samples/` | Patching visualisations for one sentence in each of the 20 languages, for all four entropy models |
+| `interactive_charts/` | Interactive versions of the thesis figures |
+| `models/` | Our three 10M entropy models (weights in `consolidated/`, training config in `config.yaml`) |
 | `results/base_model/` | Per-byte entropies and patch counts under the different patching approaches, from BLT's original entropy model, 225 FLORES+ languages (Chapter 3) |
 | `results/own_models/` | Per-byte entropies and patch counts under the different patching approaches, from our three entropy models, 20 languages (Chapter 4) |
-| `models/` | Our three 10M entropy models (weights in `consolidated/`, training config in `config.yaml`) |
 | `training_setup/` | The 20 training languages (`langs_chosen.csv`) and the custom 2-byte encoding (`custom_encoding.json`) |
-| `samples/` | Patching visualisations for one sentence in each of the 20 languages, for all four entropy models |
-| `interactive_charts/` | Interactive versions of the thesis figures |
-| `FLOPs_Analysis/` | Cost comparison Thai vs. English (Section 5.1) |
+| `BLT_FLOPs_Calculation` | Cost comparison Thai vs. English (Section 5.1) |
 
 ## Models
 
-| Model | Training data | Encoding | Checkpoint (early stopping) |
-|---|---|---|---|
-| `imbalanced` | Language shares as found in FineWeb / FineWeb2 | UTF-8 | step 2600 |
-| `balanced` | Equal information content per language | UTF-8 | step 7200 |
-| `balanced-custom` | Equal information content per language | Random 2-byte code per character | step 6400 |
+| Model | Training data | Encoding |
+|---|---|---|
+| `imbalanced` | Language shares as found in FineWeb (English, about 90%) / FineWeb2 (Other Languages, together about 10%) | UTF-8 |
+| `balanced` | Equal information content per language | UTF-8 |
+| `balanced-custom` | Equal information content per language | Random 2-byte code per character |
 
 ## Results files
 
@@ -36,7 +36,7 @@ The results files contain one JSON entry per FLORES+ sentence with the following
 
 Premium = number of patches in a language ÷ number of patches in English.
 
-## Samples
+## Entropy Profile Samples
 
 `samples/<model>/<lang>_0/` shows how the first FLORES+ sentence (`id` 0) is patched, for each of the 20 training languages and each of the four entropy models: `base_model`, `imbalanced`, `balanced` and `balanced-custom`. Only the anchor threshold of each patching mode is included, i.e. the threshold calibrated so that English reaches the same compression rate as under BLT's default threshold.
 
